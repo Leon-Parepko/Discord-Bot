@@ -1,14 +1,22 @@
+from discord import *
+import discord
 import sys
 import logging
-import discord
 
 
 
 
-#-----------------VARIABLES & CLASSES------------------
+
+#-----------------VARIABLES & CLASSES INIT------------------
 logging.basicConfig(filename='logging.log', filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
 
-# client = discord.Client()
+client = discord.Client()
+
+@client.event
+async def on_ready():
+    logging.error("Logged on as {0}".format(client.user)) # Some problems with this (it is not errors!)
+
+
 
 class Config:
     def __init__(self, token, prefix, test_1):
@@ -40,6 +48,19 @@ try:
     config = Config(content[0], content[1], content[2])
 
 
+
+    @client.event
+    async def on_message(message):
+        if message.content.startswith("#Test"):
+            await message.channel.send(message.content.split(" ")[1])
+
+
+
+
+
+
+
+    client.run(config.token)
 
 
 
