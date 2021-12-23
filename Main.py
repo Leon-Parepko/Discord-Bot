@@ -1,5 +1,4 @@
 from discord.ext.commands import has_permissions
-from discord import *
 from discord.ext import commands
 import discord.errors
 import discord
@@ -36,7 +35,8 @@ def parse_file(file_path):
     content_raw = f.read().split("\n")
     f.close()
     for i in content_raw:
-        content.append(i.split(" = ")[1])
+        if (i != ''):
+            content.append(i.split(" = ")[1])
     return content
 
 
@@ -64,19 +64,22 @@ def prefix_check(prefix):
         return False
 
 
-####### NEED TO CHECK USER IS EXIST ON SERVER!!!!
-def valid_user_check(user_id, guild_id):
-    if str(user_id).isdigit() and len(user_id) == 18 and user_id not in config.super_users:
+def valid_user_check(user_id, ctx):
+    if user_id.isdigit():
+        if int(user_id) in map(lambda x: x.id, ctx.guild.members) and str(user_id) not in config.super_users:
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+def valid_channel_check(channel_name, ctx):
+    if str(channel_name) in map(str, ctx.guild.channels) and str(channel_name) not in config.available_channels:
         return True
     else:
         return False
 
-####### NEED TO CHECK CHANNEL IS EXIST ON SERVER!!!!
-def valid_channel_check(channel, guild_id):
-    if True:
-        return True
-    else:
-        return False
 
 
 
@@ -91,31 +94,24 @@ class CustomError(Error):
 
 
 
+
+
 #------------------------------MAIN-----------------------------
-
-
-
-
-
 try:
 #Config initialization
     content = parse_file(file_path)
-    config = Config(content[0],
-                    content[1],
-                    str(content[2]).split(" "),
-                    str(content[3]).split(" "))
+    config = Config(content[0], content[1], str(content[2]).split(" "), str(content[3]).split(" "))
 
 
-
-    bot = commands.Bot(command_prefix=config.prefix)
+    intents = discord.Intents.default()
+    intents.members = True
+    bot = commands.Bot(command_prefix=config.prefix, intents=intents)
 
 
 
     @bot.event
     async def on_ready():
         logging.info("Logged on as {0}".format(bot.user))
-
-
 
 
     @bot.command()
@@ -127,47 +123,38 @@ try:
             bot.command_prefix = str(arg)
             await ctx.message.channel.send("Prefix has been changed successfully.")
         else:
-            await ctx.message.channel.send("This prefix is invalid! Please, try one of this - ```" + prefixes_available + "```\nExample: " + config.prefix + "prefix_config PREFIX")
-
-
-
+            await ctx.message.channel.send("This prefix is invalid! Please, try one of this: ```" + prefixes_available + "```\nExample:```" + config.prefix + "prefix_config PREFIX```")
 
 
     @bot.command()
     @has_permissions(administrator=True)
     async def superuser_config(ctx, operation, arg):
-        if valid_user_check(arg, ctx.guild.id) == True:
 
+        if operation != "add" and operation != "set":
+            await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "superuser_config set USER_ID```")
+
+        elif valid_user_check(arg, ctx):
             if operation == "add":
-                change_file_var(3, open(file_path, "r").readlines()[3] + " " + arg)
+                change_file_var(3, open(file_path, "r").readlines()[3].split("\n")[0] + " " + arg + "\n")
                 reconfig(parse_file(file_path))
-                await ctx.message.channel.send("New SuperUser has been added successfully.")
+                await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
 
             elif operation == "set":
-                change_file_var(3, "SUPERUSERS = " + arg)
+                change_file_var(3, "SUPERUSERS = " + arg + "\n")
                 reconfig(parse_file(file_path))
-                await ctx.message.channel.send("New SuperUser has been set successfully.")
-
-            else:
-                await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample: " + config.prefix + "superuser_config set USER_ID")
+                await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
 
         else:
-            await ctx.message.channel.send("This user is invalid or already in the list! Please, try other one\nExample: " + config.prefix + "superuser_config set USER_ID")
-
-
-
-
+            await ctx.message.channel.send("This user is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "superuser_config set USER_ID```")
 
 
     @bot.command()
     @has_permissions(administrator=True)
     async def available_channels_config(ctx, operation, arg):
+        if operation != "add" and operation != "set":
+            await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
 
-        print(ctx.guild.text_channels)
-        print('personal_chat' in ctx.guild.text_channels)
-
-
-        if valid_channel_check(arg, ctx.guild.id) == True:
+        elif valid_channel_check(arg, ctx) == True:
             if operation == "add":
                 change_file_var(2, open(file_path, "r").readlines()[2].split("\n")[0] + " " + arg + "\n")
                 reconfig(parse_file(file_path))
@@ -178,26 +165,15 @@ try:
                 reconfig(parse_file(file_path))
                 await ctx.message.channel.send("New channel has been set successfully.")
 
-            else:
-                await ctx.message.channel.send(
-                    "This operation is invalid! Please, try one of this - set, add \nExample: " + config.prefix + "available_channels_config set CHANNEL_ID")
-
         else:
-            await ctx.message.channel.send(
-                "This channel is invalid! Please, try other one\nExample: " + config.prefix + "available_channels_config set CHANNEL_ID")
-
-
-
+            await ctx.message.channel.send("This channel is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
 
 
     @bot.command()
     @has_permissions(administrator=True)
     async def show(ctx, *operation):
-        print(operation)
-
         try:
-
-            if operation == "prefix":
+            if operation[0] == "prefix":
                 await ctx.message.channel.send("```Prefix = " + config.prefix + "```")
 
             elif operation[0] == "available_channels":
@@ -214,23 +190,25 @@ try:
 
 
 
+
+
     bot.run(config.token)
 
 #-----------------ERROR CATCHER------------------
-except FileNotFoundError as e:
+except Error as e:
     logging.error(e)
     bot.close()
     sys.exit()
-
-except DiscordException as e:
-    logging.error(e)
-    bot.close()
-    sys.exit()
-
-except IndexError as e:
-    logging.error(e)
-    bot.close()
-    sys.exit()
+#
+# except DiscordException as e:
+#     logging.error(e)
+#     bot.close()
+#     sys.exit()
+#
+# except IndexError as e:
+#     logging.error(e)
+#     bot.close()
+#     sys.exit()
 
 else:
     bot.close()
