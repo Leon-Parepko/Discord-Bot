@@ -5,7 +5,8 @@ import discord
 # import asyncio
 import sys
 import logging
-# import functional
+import functional
+import sqlite3
 
 
 
@@ -14,7 +15,11 @@ file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
 
-command_index = ""
+# with sqlite3.connect('database.db') as db:
+#     cursor = db.cursor()
+#     task1 = """ CREATE TABLE IF NOT EXISTS roulette (user_id INTEGER, coins INTEGER, roll_counter INTEGER) """
+#     cursor.execute(task1)
+
 
 class Config:
     def __init__(self, token, prefix, available_channels, super_users):
@@ -22,6 +27,7 @@ class Config:
         self.prefix = prefix
         self.available_channels = available_channels
         self.super_users = super_users
+
 
 
 
@@ -81,6 +87,19 @@ def valid_channel_check(channel_name, ctx):
         return False
 
 
+def superuser_check(ctx):
+    if str(ctx.message.author.id) in config.super_users:
+        return True
+    else:
+        return False
+
+
+def add_user_roulette(ctx):
+    # ctx.message.author.id (add to SQL table)
+    pass
+
+
+
 
 
 
@@ -114,63 +133,72 @@ try:
         logging.info("Logged on as {0}".format(bot.user))
 
 
+#++++++++++++++++++++SUPERUSER_COMMANDS++++++++++++++++++++++
     @bot.command()
     @has_permissions(administrator=True)
     async def prefix_config(ctx, arg):
-        if prefix_check(str(arg)):
-            change_file_var(1, "PREFIX = " + str(arg) + "\n")
-            reconfig(parse_file(file_path))
-            bot.command_prefix = str(arg)
-            await ctx.message.channel.send("Prefix has been changed successfully.")
+        if superuser_check(ctx) and not ctx.message.author.bot:
+            if prefix_check(str(arg)):
+                change_file_var(1, "PREFIX = " + str(arg) + "\n")
+                reconfig(parse_file(file_path))
+                bot.command_prefix = str(arg)
+                await ctx.message.channel.send("Prefix has been changed successfully.")
+            else:
+                await ctx.message.channel.send("This prefix is invalid! Please, try one of this: ```" + prefixes_available + "```\nExample:```" + config.prefix + "prefix_config PREFIX```")
         else:
-            await ctx.message.channel.send("This prefix is invalid! Please, try one of this: ```" + prefixes_available + "```\nExample:```" + config.prefix + "prefix_config PREFIX```")
+            await ctx.message.channel.send("You dont have permissions to use this commands!")
 
 
     @bot.command()
     @has_permissions(administrator=True)
     async def superuser_config(ctx, operation, arg):
+        if superuser_check(ctx) and not ctx.message.author.bot:
+            if operation != "add" and operation != "set":
+                await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "superuser_config set USER_ID```")
 
-        if operation != "add" and operation != "set":
-            await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "superuser_config set USER_ID```")
+            elif valid_user_check(arg, ctx):
+                if operation == "add":
+                    change_file_var(3, open(file_path, "r").readlines()[3].split("\n")[0] + " " + arg + "\n")
+                    reconfig(parse_file(file_path))
+                    await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
 
-        elif valid_user_check(arg, ctx):
-            if operation == "add":
-                change_file_var(3, open(file_path, "r").readlines()[3].split("\n")[0] + " " + arg + "\n")
-                reconfig(parse_file(file_path))
-                await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
+                elif operation == "set":
+                    change_file_var(3, "SUPERUSERS = " + arg + "\n")
+                    reconfig(parse_file(file_path))
+                    await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
 
-            elif operation == "set":
-                change_file_var(3, "SUPERUSERS = " + arg + "\n")
-                reconfig(parse_file(file_path))
-                await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
-
+            else:
+                await ctx.message.channel.send("This user is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "superuser_config set USER_ID```")
         else:
-            await ctx.message.channel.send("This user is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "superuser_config set USER_ID```")
+            await ctx.message.channel.send("You dont have permissions to use this commands!")
 
 
     @bot.command()
     @has_permissions(administrator=True)
     async def available_channels_config(ctx, operation, arg):
-        if operation != "add" and operation != "set":
-            await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
+        if superuser_check(ctx) and not ctx.message.author.bot:
+            if operation != "add" and operation != "set":
+                await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
 
-        elif valid_channel_check(arg, ctx) == True:
-            if operation == "add":
-                change_file_var(2, open(file_path, "r").readlines()[2].split("\n")[0] + " " + arg + "\n")
-                reconfig(parse_file(file_path))
-                await ctx.message.channel.send("New channel has been added successfully.")
+            elif valid_channel_check(arg, ctx) == True:
+                if operation == "add":
+                    change_file_var(2, open(file_path, "r").readlines()[2].split("\n")[0] + " " + arg + "\n")
+                    reconfig(parse_file(file_path))
+                    await ctx.message.channel.send("New channel has been added successfully.")
 
-            elif operation == "set":
-                change_file_var(2, "CHANNELS = " + arg + "\n")
-                reconfig(parse_file(file_path))
-                await ctx.message.channel.send("New channel has been set successfully.")
+                elif operation == "set":
+                    change_file_var(2, "CHANNELS = " + arg + "\n")
+                    reconfig(parse_file(file_path))
+                    await ctx.message.channel.send("New channel has been set successfully.")
 
+            else:
+                await ctx.message.channel.send("This channel is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
         else:
-            await ctx.message.channel.send("This channel is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
+            await ctx.message.channel.send("You dont have permissions to use this commands!")
 
 
+#++++++++++++++++++++INFO_COMMANDS++++++++++++++++++++++
     @bot.command()
-    @has_permissions(administrator=True)
     async def show(ctx, *operation):
         try:
             if operation[0] == "prefix":
@@ -188,27 +216,65 @@ try:
         except IndexError:
             await ctx.message.channel.send("```Prefix = " + config.prefix + "\nAvailable Channels = " + str(config.available_channels) + "\nSuper Users = " + str(config.super_users) + "```")
 
+    @bot.command()
+    async def bot_status(ctx, *operation):
+        try:
+            if operation[0] == "ping":
+                await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
+
+        except IndexError:
+            await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
+
+
+
+
+
+#++++++++++++++++++++FUN_COMMANDS++++++++++++++++++++++
+    @bot.command()
+    async def roulette(ctx, *operation):
+        try:
+            if operation[0] == "help":
+                await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n              THIS IS A ROULETTE GAME! \nYou could use this commands to play:\nroulette start - \nroulette roll - \n....```')
+
+            elif operation[0] == "start":
+                add_user_roulette(ctx)
+
+            elif operation[0] == "roll":
+                functional.roll()
+
+            elif operation[0] == "megaroll":
+                pass
+
+            elif operation[0] == "profile":
+                pass
+
+            elif operation[0] == "roll":
+                pass
+
+            elif operation[0] == "roll":
+                pass
+
+            elif operation[0] == "roll":
+                pass
+
+            elif operation[0] == "roll":
+                pass
+
+        except IndexError:
+            await ctx.message.channel.send("Try this commands to play 'THE ROULETTE GAME': ```{}roulette help\n{}roulette start```".format(config.prefix, config.prefix))
 
 
 
 
     bot.run(config.token)
 
+
+
 #-----------------ERROR CATCHER------------------
-except Error as e:
+except Exception as e:
     logging.error(e)
     bot.close()
     sys.exit()
-#
-# except DiscordException as e:
-#     logging.error(e)
-#     bot.close()
-#     sys.exit()
-#
-# except IndexError as e:
-#     logging.error(e)
-#     bot.close()
-#     sys.exit()
 
 else:
     bot.close()

@@ -1,16 +1,19 @@
-import numpy
+import random
 
-def channels_config():
-    pass
+def roll(event):
+    items = ['item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6']
+    weights = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    weights = map(lambda x: x + random.uniform(-0.05, 0.05), weights)
 
-def prefix_config():
-    pass
 
-def roulette():
-    pass
-    #
-    # items = {"double_coins":0.2, "hardmute_1":0.001,}
-    #
-    # test1 = "aaaa", "bbbb", "cccc"
-    # test2 = [0.5, 0.25, 0.1]
-    # print (numpy.random.choice(test1, p=test2))
+
+    if event == "Double_Pos":
+        weights[0] += weights[0] * 2        #JUST AN EXAMPLE
+
+    elif event == "Double_neg":
+        weights[0] += weights[0] * 2  # JUST AN EXAMPLE
+
+
+
+
+    return random.choices(items, weights=weights)[0]
