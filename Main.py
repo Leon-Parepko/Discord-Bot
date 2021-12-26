@@ -10,15 +10,28 @@ import sqlite3
 
 
 
+
+# inserts = [(345241474214002690, 0, 0)]
+# with sqlite3.connect('database.db') as db:
+#     cursor = db.cursor()
+#     # task1 = """ CREATE TABLE IF NOT EXISTS roulette (user_id INTEGER, coins INTEGER, roll_counter INTEGER) """
+#     # cursor.execute(task1)
+#
+#
+#     query = """ INSERT INTO roulette (user_id, coins, roll_counter) VALUES(?, ?, ?) """
+#     cursor.executemany(query, inserts)
+
+
+
+
+
+
 #--------------------------VARIABLES & CLASSES INIT----------------------------------
 file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
 
-# with sqlite3.connect('database.db') as db:
-#     cursor = db.cursor()
-#     task1 = """ CREATE TABLE IF NOT EXISTS roulette (user_id INTEGER, coins INTEGER, roll_counter INTEGER) """
-#     cursor.execute(task1)
+roulette_bonus_key = "TestBonusTestBonusTestBonus"
 
 
 class Config:
@@ -94,13 +107,20 @@ def superuser_check(ctx):
         return False
 
 
-def add_user_roulette(ctx):
-    # ctx.message.author.id (add to SQL table)
-    pass
+def add_user_roulette(ctx, bonus):
+    start_coins = 500
+    if bonus:
+        start_coins *= 4
 
+    with sqlite3.connect('database.db') as db:
+        cursor = db.cursor()
+        data = cursor.execute(""" SELECT user_id FROM roulette """)
 
-
-
+        for i in data:
+            if i[0] == int(ctx.message.author.id):
+                return False
+        cursor.execute("""INSERT INTO roulette (user_id, coins, roll_counter) VALUES({}, {}, 0)""".format(int(ctx.message.author.id), start_coins))
+        return True
 
 
 #-----------------CUSTOM ERRORS------------------
@@ -232,36 +252,56 @@ try:
 #++++++++++++++++++++FUN_COMMANDS++++++++++++++++++++++
     @bot.command()
     async def roulette(ctx, *operation):
-        try:
-            if operation[0] == "help":
-                await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n              THIS IS A ROULETTE GAME! \nYou could use this commands to play:\nroulette start - \nroulette roll - \n....```')
 
-            elif operation[0] == "start":
-                add_user_roulette(ctx)
+        if ctx.message.author.bot:
+            await ctx.message.channel.send('Hay! It is illegal to use bots! :(')
 
-            elif operation[0] == "roll":
-                functional.roll()
+        else:
+            try:
+                if operation[0] == "help":
+                    await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n              THIS IS A ROULETTE GAME! \nYou could use this commands to play:\nroulette start - \nroulette roll - \n....```')
 
-            elif operation[0] == "megaroll":
-                pass
+                elif operation[0] == "start":
+                    bonus = False
+                    try:
+                        if str(operation[1]) == roulette_bonus_key:
+                            bonus = True
+                    except IndexError:
+                        pass
 
-            elif operation[0] == "profile":
-                pass
+                    if add_user_roulette(ctx, bonus) == True:
+                        await ctx.message.channel.send("New user have been added successfully!")
+                    else:
+                        await ctx.message.channel.send("You are already registered!")
 
-            elif operation[0] == "roll":
-                pass
 
-            elif operation[0] == "roll":
-                pass
+                elif operation[0] == "roll":
+                    with sqlite3.connect('database.db') as db:
+                        cursor = db.cursor()
+                        current_coins = cursor.execute("""SELECT coins FROM roulette WHERE user_id = {}""".format(int(ctx.message.author.id)))
+                        total = functional.roll() + int(current_coins[0])              # CASES OF ROLL FUNCTION
+                        cursor.execute("""UPDATE roulette SET coins = {} WHERE user_id = {}""".format(total, int(ctx.message.author.id)))
 
-            elif operation[0] == "roll":
-                pass
+                elif operation[0] == "megaroll":
+                    pass
 
-            elif operation[0] == "roll":
-                pass
+                elif operation[0] == "profile":
+                    pass
 
-        except IndexError:
-            await ctx.message.channel.send("Try this commands to play 'THE ROULETTE GAME': ```{}roulette help\n{}roulette start```".format(config.prefix, config.prefix))
+                elif operation[0] == "roll":
+                    pass
+
+                elif operation[0] == "roll":
+                    pass
+
+                elif operation[0] == "roll":
+                    pass
+
+                elif operation[0] == "roll":
+                    pass
+
+            except IndexError:
+                await ctx.message.channel.send("Try this commands to play 'THE ROULETTE GAME': ```{}roulette help\n{}roulette start```".format(config.prefix, config.prefix))
 
 
 
