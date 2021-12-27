@@ -5,8 +5,9 @@ import discord
 # import asyncio
 import sys
 import logging
-import functional
 import sqlite3
+import functional
+import text_art
 
 
 
@@ -57,6 +58,22 @@ def parse_file(file_path):
         if (i != ''):
             content.append(i.split(" = ")[1])
     return content
+
+
+def db_get(exe):
+    with sqlite3.connect('database.db') as db:
+        cursor = db.cursor()
+        data = cursor.execute("""{}""".format(str(exe)))
+        arr = []
+        for i in data:
+            arr.append(i)
+        return arr
+
+
+def db_set(exe):
+    with sqlite3.connect('database.db') as db:
+        cursor = db.cursor()
+        cursor.execute("""{}""".format(str(exe)))
 
 
 def change_file_var(var, arg):
@@ -112,15 +129,22 @@ def add_user_roulette(ctx, bonus):
     if bonus:
         start_coins *= 4
 
-    with sqlite3.connect('database.db') as db:
-        cursor = db.cursor()
-        data = cursor.execute(""" SELECT user_id FROM roulette """)
+    users = db_get(" SELECT user_id FROM roulette ")
 
-        for i in data:
-            if i[0] == int(ctx.message.author.id):
-                return False
-        cursor.execute("""INSERT INTO roulette (user_id, coins, roll_counter) VALUES({}, {}, 0)""".format(int(ctx.message.author.id), start_coins))
-        return True
+    for i in users:
+        if i[0] == int(ctx.message.author.id):
+            return False
+    db_set("INSERT INTO roulette (user_id, coins, roll_counter) VALUES({}, {}, 0)".format(int(ctx.message.author.id), start_coins))
+    return True
+
+
+def check_valid_user_roulette(ctx):
+    users = db_get(" SELECT user_id FROM roulette ")
+
+    for i in users:
+        if i[0] == int(ctx.message.author.id):
+            return True
+    return False
 
 
 #-----------------CUSTOM ERRORS------------------
@@ -259,46 +283,126 @@ try:
         else:
             try:
                 if operation[0] == "help":
-                    await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n              THIS IS A ROULETTE GAME! \nYou could use this commands to play:\nroulette start - \nroulette roll - \n....```')
+                    await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n\n\n________-----======= THIS IS A ROULETTE GAME! =======-----________\n\n\nYou could use this commands to play:\n{}roulette start - \n{}roulette roll - \n{}roulette megaroll - \n{}roulette shop - \n{}roulette profile - \n{}roulette trophies - \n{}roulette items - ```'.format(config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix))
+
 
                 elif operation[0] == "start":
-                    bonus = False
+                    start_coins = 500
                     try:
                         if str(operation[1]) == roulette_bonus_key:
-                            bonus = True
+                            start_coins *= 4
                     except IndexError:
                         pass
 
-                    if add_user_roulette(ctx, bonus) == True:
+                    if check_valid_user_roulette(ctx) == False:
+                        db_set("INSERT INTO roulette (user_id, coins, megarolls, roll_counter) VALUES({}, {}, 0, 0)".format(int(ctx.message.author.id), start_coins))
                         await ctx.message.channel.send("New user have been added successfully!")
                     else:
                         await ctx.message.channel.send("You are already registered!")
 
 
-                elif operation[0] == "roll":
-                    with sqlite3.connect('database.db') as db:
-                        cursor = db.cursor()
-                        current_coins = cursor.execute("""SELECT coins FROM roulette WHERE user_id = {}""".format(int(ctx.message.author.id)))
-                        total = functional.roll() + int(current_coins[0])              # CASES OF ROLL FUNCTION
-                        cursor.execute("""UPDATE roulette SET coins = {} WHERE user_id = {}""".format(total, int(ctx.message.author.id)))
 
+                elif operation[0] == "roll":
+                    if check_valid_user_roulette(ctx):
+                        current_coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))
+                        roll_result = functional.roll() + int(current_coins[0])              # CASES OF ROLL FUNCTION
+
+                        if roll_result == "item_1":
+                            pass
+                        elif roll_result == "item_2":
+                            pass
+                        elif roll_result == "item_3":
+                            pass
+                        elif roll_result == "item_4":
+                            pass
+                        elif roll_result == "item_5":
+                            pass
+                            # cursor.execute("""UPDATE roulette SET coins = {} WHERE user_id = {}""".format(total, int(ctx.message.author.id)))\
+
+                    else:
+                        await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
+
+
+#               NOT WORK
                 elif operation[0] == "megaroll":
-                    pass
+                    if check_valid_user_roulette(ctx):
+                        pass
+                    else:
+                        await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
+
+
 
                 elif operation[0] == "profile":
+                    if check_valid_user_roulette(ctx):
+                        user =      str(ctx.message.author).split("#")[0]
+
+                        coins =     db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+
+                        megerols =  db_get("SELECT megarolls FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+
+                        rolls =     db_get("SELECT roll_counter FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+
+                        items_arr = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+                        if len(items_arr) >= 8:
+                            items_arr = items_arr[0:8]
+                            items_arr.append("...")
+                        items = ''.join(map(lambda x: x + "  ", map(str, items_arr)))
+
+                        trophies_arr = db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+                        if len(trophies_arr) >= 8:
+                            trophies_arr = trophies_arr[0:8]
+                            trophies_arr.append("...")
+                        trophies = ''.join(map(lambda x: x + "  ", map(str, trophies_arr)))
+
+                        await ctx.message.channel.send('```\n --------------====PROFILE====-------------- \n\n UserName: {}\n Coins: {}\n Megarolls: {}\n Rolls Total: {}\n Trophies: {}\n Items: {}```'.format(user, coins, megerols, rolls, trophies, items))
+
+                    else:
+                        await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
+
+
+
+                elif operation[0] == "trophies":
+                    try:
+                        user_str = str(operation[1])
+                        user_trophy_arr = db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+                        for i in user_trophy_arr:
+                            if user_str == str(i):
+                                await ctx.message.channel.send('``` -------========#### {} ####========-------\n\n {}```'.format(user_str.upper(), text_art.arts.trophy_select(user_str)))
+
+                    except IndexError:
+                        if check_valid_user_roulette(ctx):
+                            await ctx.message.channel.send('```\n -------====++++#### TROPHY_HALL ####++++====------- \n\n {}```'.format(db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]))
+
+                        else:
+                            await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
+
+
+
+                elif operation[0] == "items":
+                    try:
+                        user_str = str(operation[1])
+                        user_item_arr = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+                        for i in user_item_arr:
+                            if user_str == str(i):
+                                await ctx.message.channel.send('``` -------========%%%% {} %%%%========-------\n\n {}```'.format(user_str.upper(), text_art.arts.item_select(user_str)))
+
+                    except IndexError:
+                        if check_valid_user_roulette(ctx):
+                            await ctx.message.channel.send('```\n -------=====****%%%% ITEMS %%%%****=====------- \n\n {}```'.format(db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]))
+
+                        else:
+                            await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
+
+
+#               NOT WORK
+                elif operation[0] == "shop":
                     pass
 
+
+#               NOT WORK
                 elif operation[0] == "roll":
                     pass
 
-                elif operation[0] == "roll":
-                    pass
-
-                elif operation[0] == "roll":
-                    pass
-
-                elif operation[0] == "roll":
-                    pass
 
             except IndexError:
                 await ctx.message.channel.send("Try this commands to play 'THE ROULETTE GAME': ```{}roulette help\n{}roulette start```".format(config.prefix, config.prefix))
