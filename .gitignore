@@ -1,3 +1,4 @@
 refs/
+__pycache__/
 config.txt
 *.log
