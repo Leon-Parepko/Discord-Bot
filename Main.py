@@ -1,6 +1,8 @@
-import schedule as schedule
+import random
+
 from discord.ext.commands import has_permissions
 from discord.ext import commands
+from discord.ext import tasks
 import discord.errors
 import discord
 # import asyncio
@@ -29,21 +31,22 @@ import text_art
 
 
 #--------------------------VARIABLES & CLASSES INIT----------------------------------
-file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
+config_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
+win_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
-
 roulette_bonus_key = "TestBonusTestBonusTestBonus"
 daily_bonus = 200
 roll_price = 20
 
 
 class Config:
-    def __init__(self, token, prefix, available_channels, super_users):
+    def __init__(self, token, prefix, available_channels, super_users, version):
         self.token = token
         self.prefix = prefix
         self.available_channels = available_channels
         self.super_users = super_users
+        self.version = version
 
 
 
@@ -52,14 +55,17 @@ class Config:
 
 
 #--------------------------SUBSIDIARY_FUNCTIONS----------------------------------
-def parse_file(file_path):
+def parse_file(config_file_path):
     content = []
-    f = open(file_path, "r")
+    f = open(config_file_path, "r")
     content_raw = f.read().split("\n")
     f.close()
-    for i in content_raw:
-        if (i != ''):
-            content.append(i.split(" = ")[1])
+    for line in content_raw:
+        if (line != ''):
+            try:
+                content.append(line.split(" = ")[1])
+            except:
+                content.append(line)
     return content
 
 
@@ -80,11 +86,11 @@ def db_set(exe):
 
 
 def change_file_var(var, arg):
-    file_reader = open(file_path, "r")
+    file_reader = open(config_file_path, "r")
     lines_list = file_reader.readlines()
     file_reader.close()
     lines_list[var] = str(arg)
-    file_writer = open(file_path, "w")
+    file_writer = open(config_file_path, "w")
     file_writer.writelines(lines_list)
     file_writer.close()
 
@@ -164,11 +170,13 @@ class CustomError(Error):
 
 #------------------------------MAIN-----------------------------
 try:
+
 #Config initialization
-    content = parse_file(file_path)
-    config = Config(content[0], content[1], str(content[2]).split(" "), str(content[3]).split(" "))
+    content = parse_file(config_file_path)
+    config = Config(content[0], content[1], str(content[2]).split(" "), str(content[3]).split(" "), content[4])
 
 
+#Bot initialization
     intents = discord.Intents.default()
     intents.members = True
     bot = commands.Bot(command_prefix=config.prefix, intents=intents)
@@ -180,6 +188,7 @@ try:
         logging.info("Logged on as {0}".format(bot.user))
 
 
+
 #++++++++++++++++++++SUPERUSER_COMMANDS++++++++++++++++++++++
     @bot.command()
     @has_permissions(administrator=True)
@@ -187,7 +196,7 @@ try:
         if superuser_check(ctx) and not ctx.message.author.bot:
             if prefix_check(str(arg)):
                 change_file_var(1, "PREFIX = " + str(arg) + "\n")
-                reconfig(parse_file(file_path))
+                reconfig(parse_file(config_file_path))
                 bot.command_prefix = str(arg)
                 await ctx.message.channel.send("Prefix has been changed successfully.")
             else:
@@ -205,19 +214,20 @@ try:
 
             elif valid_user_check(arg, ctx):
                 if operation == "add":
-                    change_file_var(3, open(file_path, "r").readlines()[3].split("\n")[0] + " " + arg + "\n")
-                    reconfig(parse_file(file_path))
+                    change_file_var(3, open(config_file_path, "r").readlines()[3].split("\n")[0] + " " + arg + "\n")
+                    reconfig(parse_file(config_file_path))
                     await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
 
                 elif operation == "set":
                     change_file_var(3, "SUPERUSERS = " + arg + "\n")
-                    reconfig(parse_file(file_path))
+                    reconfig(parse_file(config_file_path))
                     await ctx.message.channel.send("New SuperUser: " + str(bot.get_user(int(arg))) + " has been set successfully.")
 
             else:
                 await ctx.message.channel.send("This user is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "superuser_config set USER_ID```")
         else:
             await ctx.message.channel.send("You dont have permissions to use this commands!")
+
 
 
     @bot.command()
@@ -229,13 +239,13 @@ try:
 
             elif valid_channel_check(arg, ctx) == True:
                 if operation == "add":
-                    change_file_var(2, open(file_path, "r").readlines()[2].split("\n")[0] + " " + arg + "\n")
-                    reconfig(parse_file(file_path))
+                    change_file_var(2, open(config_file_path, "r").readlines()[2].split("\n")[0] + " " + arg + "\n")
+                    reconfig(parse_file(config_file_path))
                     await ctx.message.channel.send("New channel has been added successfully.")
 
                 elif operation == "set":
                     change_file_var(2, "CHANNELS = " + arg + "\n")
-                    reconfig(parse_file(file_path))
+                    reconfig(parse_file(config_file_path))
                     await ctx.message.channel.send("New channel has been set successfully.")
 
             else:
@@ -248,7 +258,10 @@ try:
     @bot.command()
     async def show(ctx, *operation):
         try:
-            if operation[0] == "prefix":
+            if operation[0] == "version":
+                await ctx.message.channel.send("```Version = " + config.version + "```")
+
+            elif operation[0] == "prefix":
                 await ctx.message.channel.send("```Prefix = " + config.prefix + "```")
 
             elif operation[0] == "available_channels":
@@ -261,7 +274,7 @@ try:
                 await ctx.message.channel.send("Are you serious?")
 
         except IndexError:
-            await ctx.message.channel.send("```Prefix = " + config.prefix + "\nAvailable Channels = " + str(config.available_channels) + "\nSuper Users = " + str(config.super_users) + "```")
+            await ctx.message.channel.send("```Version = {}\nPrefix = {}\nAvailable Channels = {}\nSuper Users = {}```".format(config.version, config.prefix, config.available_channels, config.super_users))
 
     @bot.command()
     async def bot_status(ctx, *operation):
@@ -298,7 +311,7 @@ try:
                         pass
 
                     if check_valid_user_roulette(ctx) == False:
-                        db_set("INSERT INTO roulette (user_id, coins, megarolls, roll_counter, daily) VALUES({}, {}, 0, 0, 0)".format(int(ctx.message.author.id), start_coins))
+                        db_set("INSERT INTO roulette (user_id, coins, megarolls, items, trophies, roll_counter, daily) VALUES({}, {}, 0, 'default_item', 'default_trophy', 0, 0)".format(int(ctx.message.author.id), start_coins))
                         await ctx.message.channel.send("New user have been added successfully!")
                     else:
                         await ctx.message.channel.send("You are already registered!")
@@ -307,19 +320,23 @@ try:
 #               NOT WORK
                 elif operation[0] == "roll":
                     if check_valid_user_roulette(ctx):
-                        current_coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id))) - roll_price
-                        if int(current_coins[0][0]) >= roll_price:
+                        user_coins = int(db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
+                        if user_coins >= roll_price:
+                            user_coins -= roll_price
                             roll_result = functional.roll("None")
+                            win_phrase = random.choice(parse_file(win_words_file_path))
                             print(roll_result)
                             # print(type(roll_result))
-                            # print(current_coins[0][0])
+                            # print(user_coins[0][0])
 
                             if type(roll_result) == int:
-                                db_set("UPDATE roulette SET coins = {} WHERE user_id = {}".format(current_coins + roll_result, int(ctx.message.author.id)))
+                                db_set("UPDATE roulette SET coins = {} WHERE user_id = {}".format(user_coins + roll_result, int(ctx.message.author.id)))
+                                await ctx.message.channel.send("{}\nYou have won {} © !\nTotal balance is: {} ©".format(win_phrase, roll_result, user_coins + roll_result))
 
 
                             elif "ban" in roll_result:
                                 ban_time = roll_result.split("_")[1]
+                                await ctx.message.channel.send("{}\nYou have won BAN on {} minutes!".format(win_phrase, ban_time))
 
                             elif roll_result == "item_3":
                                 pass
@@ -341,7 +358,6 @@ try:
                         pass
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
-
 
 
                 elif operation[0] == "profile":
@@ -367,11 +383,10 @@ try:
                             trophies_arr.append("...")
                         trophies = ''.join(map(lambda x: x + "  ", map(str, trophies_arr)))
 
-                        await ctx.message.channel.send('```\n --------------====PROFILE====-------------- \n\n UserName: {}\n Coins: {} ©\n Megarolls: {}\n Rolls Total: {}\n Trophies: {}\n Items: {}```'.format(user, coins, megerols, rolls, trophies, items))
+                        await ctx.message.channel.send('```\n --------------====PROFILE====-------------- \n\n UserName:     {}\n Coins:        {} ©\n Megarolls:    {}\n Rolls Total:  {}\n Trophies:     {}\n Items:        {}```'.format(user, coins, megerols, rolls, trophies, items))
 
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
-
 
 
                 elif operation[0] == "trophies":
@@ -389,7 +404,6 @@ try:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
 
-
                 elif operation[0] == "items":
                     if check_valid_user_roulette(ctx):
                         try:
@@ -405,7 +419,6 @@ try:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
 
-#               NOT WORK
                 elif operation[0] == "shop":
                     if check_valid_user_roulette(ctx):
 
@@ -413,12 +426,20 @@ try:
 
                         try:
                             user_str = str(operation[1])
+                            user_coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
                             for item in shop_item_arr:
                                 if user_str.upper() == str(item[0]).upper():
-                                    price = item[1]
-
-                                # else:
-                                #     await ctx.message.channel.send('You dont have enough money to buy this item!')
+                                    if user_coins >= item[1]:
+                                        user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+                                        if str(item[0]) not in str(user_items):
+                                            db_set("UPDATE roulette SET items = '{}' WHERE user_id = {}".format(str(user_items).__add__(" " + str(item[0])), int(ctx.message.author.id)))
+                                            db_set("UPDATE roulette SET coins = {} WHERE user_id = {}".format(int(user_coins) - int(item[1]), int(ctx.message.author.id)))
+                                            await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).replace("_", " ").upper(), int(user_coins) - int(item[1])))
+                                            break
+                                        else:
+                                            await ctx.message.channel.send('You already have this item.')
+                                    else:
+                                        await ctx.message.channel.send('You dont have enough money to buy this item!')
 
 
 
@@ -438,9 +459,6 @@ try:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
 
-
-
-                #               NOT WORK
                 elif operation[0] == "daily":
                     if check_valid_user_roulette(ctx):
                         user_daily = db_get("SELECT daily FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
@@ -461,8 +479,15 @@ try:
 
 
 
-    bot.run(config.token)
 
+#++++++++++++++++++++SCHEDULE_COMMANDS++++++++++++++++++++++
+    @tasks.loop(hours=24)
+    async def daily():
+        db_set("UPDATE roulette SET daily = 0")
+
+
+    daily.start()
+    bot.run(config.token)
 
 
 #-----------------ERROR CATCHER------------------
