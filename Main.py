@@ -3,9 +3,7 @@ import random
 from discord.ext.commands import has_permissions
 from discord.ext import commands
 from discord.ext import tasks
-import discord.errors
 import discord
-# import asyncio
 import sys
 import logging
 import sqlite3
@@ -156,6 +154,18 @@ def check_valid_user_roulette(ctx):
     return False
 
 
+def add_user_item(ctx, item):
+    user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+    db_set("UPDATE roulette SET items = '{}' WHERE user_id = {}".format(str(user_items).__add__(" " + str(item)),int(ctx.message.author.id)))
+
+
+def add_sub_user_coins(ctx, sum):
+    user_coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+    db_set("UPDATE roulette SET coins = '{}' WHERE user_id = {}".format(int(user_coins) + int(sum), int(ctx.message.author.id)))
+
+
+
+
 #-----------------CUSTOM ERRORS------------------
 class Error(Exception):
     pass
@@ -286,9 +296,6 @@ try:
             await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
 
 
-
-
-
 #++++++++++++++++++++FUN_COMMANDS++++++++++++++++++++++
     @bot.command()
     async def roulette(ctx, *operation):
@@ -299,7 +306,7 @@ try:
 
             try:
                 if operation[0] == "help":
-                    await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n\n\n________-----======= THIS IS A ROULETTE GAME! =======-----________\n\n\nYou could use this commands to play:\n{}roulette start - \n{}roulette roll - \n{}roulette megaroll - \n{}roulette shop - \n{}roulette profile - \n{}roulette trophies - \n{}roulette items - ```'.format(config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix))
+                    await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n\n\n________-----======= THIS IS A ROULETTE GAME! =======-----________\n\n\nYou could use this commands to play:\n{}roulette start - \n{}roulette top - \n{}roulette roll - \n{}roulette megaroll - \n{}roulette shop - \n{}roulette profile - \n{}roulette trophies - \n{}roulette items - ```'.format(config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix))
 
 
                 elif operation[0] == "start":
@@ -326,11 +333,11 @@ try:
                             roll_result = functional.roll("None")
                             win_phrase = random.choice(parse_file(win_words_file_path))
                             print(roll_result)
-                            # print(type(roll_result))
-                            # print(user_coins[0][0])
+
+                            add_sub_user_coins(ctx, -roll_price)
 
                             if type(roll_result) == int:
-                                db_set("UPDATE roulette SET coins = {} WHERE user_id = {}".format(user_coins + roll_result, int(ctx.message.author.id)))
+                                add_sub_user_coins(ctx, roll_result)
                                 await ctx.message.channel.send("{}\nYou have won {} © !\nTotal balance is: {} ©".format(win_phrase, roll_result, user_coins + roll_result))
 
 
@@ -338,8 +345,26 @@ try:
                                 ban_time = roll_result.split("_")[1]
                                 await ctx.message.channel.send("{}\nYou have won BAN on {} minutes!".format(win_phrase, ban_time))
 
-                            elif roll_result == "item_3":
-                                pass
+
+                            elif roll_result == "item":
+                                user_items = str(db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
+                                roll_items = db_get("SELECT item FROM roulette_roll_items")
+                                roll_items_reduce = db_get("SELECT item FROM roulette_roll_items")
+
+                                for item in roll_items:
+                                    if item[0] in user_items:
+                                        roll_items_reduce.remove(item)
+
+                                if roll_items_reduce == []:
+                                    await ctx.message.channel.send("PLEASE **STOP PLAYING THIS SHIT!**\nYou already have all the items.")
+
+                                else:
+                                    rand_item = random.choice(roll_items_reduce)[0]
+                                    add_user_item(ctx, rand_item)
+                                    await ctx.message.channel.send("{}\nYou have won new item: {} !".format(win_phrase, str(rand_item).upper()))
+
+
+
                             elif roll_result == "item_4":
                                 pass
                             elif roll_result == "item_5":
@@ -371,7 +396,6 @@ try:
                         rolls =     db_get("SELECT roll_counter FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
 
                         items_arr = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
-
                         if len(items_arr) >= 8:
                             items_arr = items_arr[0:8]
                             items_arr.append("...")
@@ -432,9 +456,9 @@ try:
                                     if user_coins >= item[1]:
                                         user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
                                         if str(item[0]) not in str(user_items):
-                                            db_set("UPDATE roulette SET items = '{}' WHERE user_id = {}".format(str(user_items).__add__(" " + str(item[0])), int(ctx.message.author.id)))
-                                            db_set("UPDATE roulette SET coins = {} WHERE user_id = {}".format(int(user_coins) - int(item[1]), int(ctx.message.author.id)))
-                                            await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).replace("_", " ").upper(), int(user_coins) - int(item[1])))
+                                            add_user_item(ctx, item[0])
+                                            add_sub_user_coins(ctx, -int(item[1]))
+                                            await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).upper(), int(user_coins) - int(item[1])))
                                             break
                                         else:
                                             await ctx.message.channel.send('You already have this item.')
@@ -464,11 +488,27 @@ try:
                         user_daily = db_get("SELECT daily FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
                         if user_daily == 0:
                             coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
-                            db_set("UPDATE roulette SET coins = {} WHERE user_id = {}".format(coins + daily_bonus, int(ctx.message.author.id)))
+                            add_sub_user_coins(ctx, int(daily_bonus))
                             db_set("UPDATE roulette SET daily = 1 WHERE user_id = {}".format(int(ctx.message.author.id)))
                             await ctx.message.channel.send("Your balance is: {} ©".format(coins + daily_bonus))
                         else:
                             await ctx.message.channel.send("You have already used daily bonus. Try next day.")
+                    else:
+                        await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
+
+
+                elif operation[0] == "top":
+                    if check_valid_user_roulette(ctx):
+                        top_arr = db_get("SELECT user_id, coins FROM roulette ORDER BY coins DESC")
+
+                        top_arr = top_arr[0:10]
+
+                        counter = 1
+                        top = ''
+                        for user in top_arr:
+                            top += ''.__add__(str(counter) + '. - ' + str(bot.get_user(int(user[0]))).split("#")[0] + " " + str(user[1]) + " ©\n")
+                            counter += 1
+                        await ctx.message.channel.send('```--------------====TOP LEADERS====--------------\n\n{}```'.format(top))
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
