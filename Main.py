@@ -1,28 +1,16 @@
-import random
+import asyncio
+import time
 
 from discord.ext.commands import has_permissions
 from discord.ext import commands
 from discord.ext import tasks
 import discord
+import random
 import sys
 import logging
 import sqlite3
 import functional
 import text_art
-
-
-
-
-# inserts = [(345241474214002690, 0, 0)]
-# with sqlite3.connect('database.db') as db:
-#     cursor = db.cursor()
-#     # task1 = """ CREATE TABLE IF NOT EXISTS roulette (user_id INTEGER, coins INTEGER, roll_counter INTEGER) """
-#     # cursor.execute(task1)
-#
-#
-#     query = """ INSERT INTO roulette (user_id, coins, roll_counter) VALUES(?, ?, ?) """
-#     cursor.executemany(query, inserts)
-
 
 
 
@@ -33,6 +21,8 @@ config_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
 win_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
+
+Start_Coins = 500
 roulette_bonus_key = "TestBonusTestBonusTestBonus"
 daily_bonus = 200
 roll_price = 20
@@ -264,6 +254,33 @@ try:
             await ctx.message.channel.send("You dont have permissions to use this commands!")
 
 
+
+    @bot.command(pass_context=True)
+    @has_permissions(administrator=True)
+    async def ban(ctx, user: discord.Member, time, reason):
+        if superuser_check(ctx) and not ctx.message.author.bot:
+            member = ctx.message.author
+            ban_role = discord.utils.get(member.guild.roles, name="prisoner")
+            user_roles = []
+            for role in user.roles[1:]:
+                user_roles.append(str(role))
+                await user.remove_roles(discord.utils.get(member.guild.roles, name=str(role)))
+            await user.add_roles(ban_role)
+            await ctx.message.channel.send("**{}** has been banned on {} min.\nReason: **{}**".format(str(user), time, str(reason)))
+
+            await asyncio.sleep(int(time) * 60)
+
+            await user.remove_roles(ban_role)
+            for role in user_roles:
+                await user.add_roles(discord.utils.get(member.guild.roles, name=str(role)))
+            await ctx.message.channel.send("**{}** has been unbanned!".format(str(user)))
+
+        else:
+            await ctx.message.channel.send("You dont have permissions to use this commands!")
+
+
+
+
 #++++++++++++++++++++INFO_COMMANDS++++++++++++++++++++++
     @bot.command()
     async def show(ctx, *operation):
@@ -310,10 +327,9 @@ try:
 
 
                 elif operation[0] == "start":
-                    start_coins = 500
                     try:
                         if str(operation[1]) == roulette_bonus_key:
-                            start_coins *= 4
+                            start_coins = Start_Coins * 4
                     except IndexError:
                         pass
 
@@ -365,10 +381,18 @@ try:
 
 
 
-                            elif roll_result == "item_4":
+                            elif roll_result == "trophy":
                                 pass
-                            elif roll_result == "item_5":
-                                pass
+
+
+
+                            elif roll_result == "double_balance":
+                                add_sub_user_coins(ctx, int(user_coins))
+                                await ctx.message.channel.send("{}\nYour balance is doubled, now it is: {} © !".format(win_phrase, int(user_coins) * 2))
+
+
+                            user_rolls = int(db_get("SELECT roll_counter FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
+                            db_set("UPDATE roulette SET roll_counter = {} WHERE user_id = {}".format(int(user_rolls + 1), int(ctx.message.author.id)))
 
 
                         else:
@@ -524,7 +548,6 @@ try:
     @tasks.loop(hours=24)
     async def daily():
         db_set("UPDATE roulette SET daily = 0")
-
 
     daily.start()
     bot.run(config.token)
