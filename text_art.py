@@ -1,16 +1,12 @@
 class arts:
     def trophy_select(trophy):
-        trophy_name1 = "test_description1: \n\n test_art1"
-        trophy_name2 = "test_description2: \n\n test_art2"
-        trophy_name3 = "test_description3: \n\n test_art3"
+        test_trophy_1 = "test_description1: \n\n test_art1"
         neko_paradise = "...\n\n..."
 
-        if trophy == "trophy_name1":
-            return trophy_name1
-        elif trophy == "trophy_name2":
-            return trophy_name2
-        elif trophy == "trophy_name3":
-            return trophy_name3
+        if trophy == "test_trophy_1":
+            return test_trophy_1
+        elif trophy == "neko_paradise":
+            return neko_paradise
 
 
 
@@ -29,5 +25,11 @@ class arts:
             return item_name2
         elif item == "item_name3":
             return item_name3
+        elif item == "neko_girlfriend":
+            return neko_girlfriend
+        elif item == "neko_wife":
+            return neko_wife
+        elif item == "neko_sister":
+            return neko_sister
         elif item == "ban_hammer":
             return ban_hammer

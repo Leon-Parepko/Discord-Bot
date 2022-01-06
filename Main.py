@@ -1,10 +1,8 @@
-import asyncio
-import time
-
 from discord.ext.commands import has_permissions
 from discord.ext import commands
 from discord.ext import tasks
 import discord
+import asyncio
 import random
 import sys
 import logging
@@ -121,20 +119,6 @@ def superuser_check(ctx):
         return False
 
 
-def add_user_roulette(ctx, bonus):
-    start_coins = 500
-    if bonus:
-        start_coins *= 4
-
-    users = db_get(" SELECT user_id FROM roulette ")
-
-    for i in users:
-        if i[0] == int(ctx.message.author.id):
-            return False
-    db_set("INSERT INTO roulette (user_id, coins, roll_counter) VALUES({}, {}, 0)".format(int(ctx.message.author.id), start_coins))
-    return True
-
-
 def check_valid_user_roulette(ctx):
     users = db_get(" SELECT user_id FROM roulette ")
 
@@ -149,11 +133,27 @@ def add_user_item(ctx, item):
     db_set("UPDATE roulette SET items = '{}' WHERE user_id = {}".format(str(user_items).__add__(" " + str(item)),int(ctx.message.author.id)))
 
 
+def add_user_trophy(ctx, trophy):
+    user_trophies = db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+    db_set("UPDATE roulette SET trophies = '{}' WHERE user_id = {}".format(str(user_trophies).__add__(" " + str(trophy)),int(ctx.message.author.id)))
+
+
 def add_sub_user_coins(ctx, sum):
     user_coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
     db_set("UPDATE roulette SET coins = '{}' WHERE user_id = {}".format(int(user_coins) + int(sum), int(ctx.message.author.id)))
 
 
+def add_sub_user_megacoins(ctx, sum):
+    user_megacoins = db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+    db_set("UPDATE roulette SET megacoins = '{}' WHERE user_id = {}".format(int(user_megacoins) + int(sum), int(ctx.message.author.id)))
+
+
+class phrases:
+    def win(self):
+        return str(random.choice(parse_file(win_words_file_path)))
+
+    def loose(self):
+        pass
 
 
 #-----------------CUSTOM ERRORS------------------
@@ -180,6 +180,10 @@ try:
     intents = discord.Intents.default()
     intents.members = True
     bot = commands.Bot(command_prefix=config.prefix, intents=intents)
+
+
+#Phrases initialization
+    Phrases = phrases()
 
 
 
@@ -257,27 +261,33 @@ try:
 
     @bot.command(pass_context=True)
     @has_permissions(administrator=True)
-    async def ban(ctx, user: discord.Member, time, reason):
-        if superuser_check(ctx) and not ctx.message.author.bot:
-            member = ctx.message.author
-            ban_role = discord.utils.get(member.guild.roles, name="prisoner")
-            user_roles = []
-            for role in user.roles[1:]:
-                user_roles.append(str(role))
-                await user.remove_roles(discord.utils.get(member.guild.roles, name=str(role)))
-            await user.add_roles(ban_role)
-            await ctx.message.channel.send("**{}** has been banned on {} min.\nReason: **{}**".format(str(user), time, str(reason)))
+    async def ban(ctx, user: discord.Member, ban_time, reason, *bot_use):
+        if (superuser_check(ctx) and not ctx.message.author.bot) or bot_use[0] == True:
+                print(bot)
+            # if not(int(ctx.message.author.id) == int(user.id)):
+                if not user.guild_permissions.administrator:
+                    member = ctx.message.author
+                    ban_role = discord.utils.get(member.guild.roles, name="prisoner")
+                    user_roles = []
+                    for role in user.roles[1:]:
+                        user_roles.append(str(role))
+                        await user.remove_roles(discord.utils.get(member.guild.roles, name=str(role)))
+                    await user.add_roles(ban_role)
+                    await ctx.message.channel.send("**{}** has been banned on {} min.\nReason: **{}**".format(str(user), ban_time, str(reason)))
+                    logging.info(" BAN   -   User: {},  Roles: {},  Time: {} (min),  Reason: {},  By: {}".format(user, str(user_roles), ban_time, reason, ctx.message.author))
 
-            await asyncio.sleep(int(time) * 60)
+                    await asyncio.sleep(int(ban_time) * 60)
 
-            await user.remove_roles(ban_role)
-            for role in user_roles:
-                await user.add_roles(discord.utils.get(member.guild.roles, name=str(role)))
-            await ctx.message.channel.send("**{}** has been unbanned!".format(str(user)))
-
+                    await user.remove_roles(ban_role)
+                    for role in user_roles:
+                        await user.add_roles(discord.utils.get(member.guild.roles, name=str(role)))
+                    await ctx.message.channel.send("**{}** has been unbanned!".format(str(user)))
+                else:
+                    await ctx.message.channel.send("Hay! You cant just ban an administrator.")
+            # else:
+            #     await ctx.message.channel.send("Just tell me why?")
         else:
             await ctx.message.channel.send("You dont have permissions to use this commands!")
-
 
 
 
@@ -303,6 +313,7 @@ try:
         except IndexError:
             await ctx.message.channel.send("```Version = {}\nPrefix = {}\nAvailable Channels = {}\nSuper Users = {}```".format(config.version, config.prefix, config.available_channels, config.super_users))
 
+
     @bot.command()
     async def bot_status(ctx, *operation):
         try:
@@ -311,6 +322,7 @@ try:
 
         except IndexError:
             await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
+
 
 
 #++++++++++++++++++++FUN_COMMANDS++++++++++++++++++++++
@@ -327,6 +339,7 @@ try:
 
 
                 elif operation[0] == "start":
+                    start_coins = Start_Coins
                     try:
                         if str(operation[1]) == roulette_bonus_key:
                             start_coins = Start_Coins * 4
@@ -334,7 +347,7 @@ try:
                         pass
 
                     if check_valid_user_roulette(ctx) == False:
-                        db_set("INSERT INTO roulette (user_id, coins, megarolls, items, trophies, roll_counter, daily) VALUES({}, {}, 0, 'default_item', 'default_trophy', 0, 0)".format(int(ctx.message.author.id), start_coins))
+                        db_set("INSERT INTO roulette (user_id, coins, megacoins, items, trophies, roll_counter, daily) VALUES({}, {}, 0, 'default_item', 'default_trophy', 0, 0)".format(int(ctx.message.author.id), start_coins))
                         await ctx.message.channel.send("New user have been added successfully!")
                     else:
                         await ctx.message.channel.send("You are already registered!")
@@ -346,20 +359,21 @@ try:
                         user_coins = int(db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
                         if user_coins >= roll_price:
                             user_coins -= roll_price
-                            roll_result = functional.roll("None")
-                            win_phrase = random.choice(parse_file(win_words_file_path))
-                            print(roll_result)
-
+                            user_roll_buff = db_get("SELECT roll_buff FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+                            roll_result = functional.roll(str(user_roll_buff))
                             add_sub_user_coins(ctx, -roll_price)
+                            db_set("UPDATE roulette SET roll_buff = NULL WHERE user_id = {}".format(int(ctx.message.author.id)))
+                            print(roll_result, user_roll_buff)
 
                             if type(roll_result) == int:
                                 add_sub_user_coins(ctx, roll_result)
-                                await ctx.message.channel.send("{}\nYou have won {} © !\nTotal balance is: {} ©".format(win_phrase, roll_result, user_coins + roll_result))
+                                await ctx.message.channel.send("{}\nYou have won {} © !\nTotal balance is: {} ©".format(Phrases.win(), roll_result, user_coins + roll_result))
 
 
                             elif "ban" in roll_result:
                                 ban_time = roll_result.split("_")[1]
-                                await ctx.message.channel.send("{}\nYou have won BAN on {} minutes!".format(win_phrase, ban_time))
+                                await ctx.message.channel.send("{}\nYou have won BAN on {} minutes!".format(Phrases.win(), ban_time))
+                                await ban(ctx, ctx.message.author, ban_time, "Roulette", True)
 
 
                             elif roll_result == "item":
@@ -377,18 +391,41 @@ try:
                                 else:
                                     rand_item = random.choice(roll_items_reduce)[0]
                                     add_user_item(ctx, rand_item)
-                                    await ctx.message.channel.send("{}\nYou have won new item: {} !".format(win_phrase, str(rand_item).upper()))
-
+                                    await ctx.message.channel.send("{}\nYou have won new item: {} !".format(Phrases.win(), str(rand_item).upper()))
 
 
                             elif roll_result == "trophy":
-                                pass
+                                user_trophies = str(db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
+                                roll_trophies = db_get("SELECT trophy FROM roulette_roll_trophies")
+                                roll_trophies_reduce = db_get("SELECT trophy FROM roulette_roll_trophies")
 
+                                for trophy in roll_trophies:
+                                    if trophy[0] in user_trophies:
+                                        roll_trophies_reduce.remove(trophy)
+
+                                if roll_trophies_reduce == []:
+                                    await ctx.message.channel.send(" YOU'R MAD! PLEASE **STOP THIS!**\nYou already have all the trophies.")
+
+                                else:
+                                    rand_trophy = random.choice(roll_trophies_reduce)[0]
+                                    add_user_trophy(ctx, rand_trophy)
+                                    await ctx.message.channel.send("{}\nYou have won new trophy: {} !".format(Phrases.win(), str(rand_trophy).upper()))
+
+
+                            elif roll_result == "roll_buff":
+                                buff = functional.roll_buff()
+                                db_set("UPDATE roulette SET roll_buff = '{}' WHERE user_id = {}".format(str(buff), int(ctx.message.author.id)))
+                                await ctx.message.channel.send("{}\nYou have won roll buff: {}.\nIt will be automatically used in your next roll.".format(Phrases.win(), buff))
 
 
                             elif roll_result == "double_balance":
                                 add_sub_user_coins(ctx, int(user_coins))
-                                await ctx.message.channel.send("{}\nYour balance is doubled, now it is: {} © !".format(win_phrase, int(user_coins) * 2))
+                                await ctx.message.channel.send("{}\nYour balance is doubled, now it is: {} © !".format(Phrases.win(), int(user_coins) * 2))
+
+
+                            elif roll_result == "megacoin":
+                                await ctx.message.channel.send(
+                                    "{}\nYour balance is doubled, now it is: {} © !".format(Phrases.win(), int(user_coins) * 2))
 
 
                             user_rolls = int(db_get("SELECT roll_counter FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
@@ -404,7 +441,25 @@ try:
 #               NOT WORK
                 elif operation[0] == "megaroll":
                     if check_valid_user_roulette(ctx):
-                        pass
+                        user_coins = int(db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
+                        user_megacoins = int(db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
+                        if user_megacoins >= 1:
+                            db_set("UPDATE roulette SET megacoins = {} WHERE user_id = {}".format(int(user_megacoins - 1), int(ctx.message.author.id)))
+                            megaroll_result = functional.roll("megaroll")
+
+                            if type(megaroll_result) == int:
+                                add_sub_user_coins(ctx, megaroll_result)
+                                await ctx.message.channel.send("{}\nYou have won {} © !\nTotal balance is: {} ©".format(Phrases.win(), megaroll_result, user_coins + megaroll_result))
+
+
+                            elif megaroll_result == "item":
+                                pass
+
+
+                            elif megaroll_result == "trophy":
+                                pass
+
+
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
@@ -415,7 +470,7 @@ try:
 
                         coins =     db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
 
-                        megerols =  db_get("SELECT megarolls FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+                        megacoins =  db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
 
                         rolls =     db_get("SELECT roll_counter FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
 
@@ -431,7 +486,7 @@ try:
                             trophies_arr.append("...")
                         trophies = ''.join(map(lambda x: x + "  ", map(str, trophies_arr)))
 
-                        await ctx.message.channel.send('```\n --------------====PROFILE====-------------- \n\n UserName:     {}\n Coins:        {} ©\n Megarolls:    {}\n Rolls Total:  {}\n Trophies:     {}\n Items:        {}```'.format(user, coins, megerols, rolls, trophies, items))
+                        await ctx.message.channel.send('```\n --------------====PROFILE====-------------- \n\n UserName:     {}\n Coins:        {} ©\n Megacoins:    {} ▽\n Rolls Total:  {}\n Trophies:     {}\n Items:        {}```'.format(user, coins, megacoins, rolls, trophies, items))
 
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
@@ -478,30 +533,45 @@ try:
                             for item in shop_item_arr:
                                 if user_str.upper() == str(item[0]).upper():
                                     if user_coins >= item[1]:
-                                        user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
-                                        if str(item[0]) not in str(user_items):
-                                            add_user_item(ctx, item[0])
-                                            add_sub_user_coins(ctx, -int(item[1]))
-                                            await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).upper(), int(user_coins) - int(item[1])))
-                                            break
+
+                                        if "*buff_" in str(item[0]):
+                                            db_set("UPDATE roulette SET roll_buff = '{}' WHERE user_id = {}".format(item[0].split("*buff_")[0], int(ctx.message.author.id)))
+
                                         else:
-                                            await ctx.message.channel.send('You already have this item.')
+                                            user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+                                            if str(item[0]) not in str(user_items):
+                                                if "**mega_" in str(item[0]):
+                                                    add_user_item(ctx, item[0].split("**mega_")[0])
+                                                    add_sub_user_megacoins(ctx, -int(item[1]))
+                                                else:
+                                                    add_user_item(ctx, item[0])
+                                                    add_sub_user_coins(ctx, -int(item[1]))
+                                                await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).upper(), int(user_coins) - int(item[1])))
+                                                break
+                                            else:
+                                                await ctx.message.channel.send('You already have this item.')
                                     else:
                                         await ctx.message.channel.send('You dont have enough money to buy this item!')
+                            await ctx.message.channel.send('There is no such item.\nTry this commands: ```{}roulette shop item\n{}roulette shop **mega_item\n{}roulette shop *buff_item```'.format(config.prefix, config.prefix, config.prefix))
+
 
 
 
                         except IndexError:
                             out_shop_item_arr = []
+                            out_shop_megaitem_arr = []
                             out_shop_buff_arr = []
                             for item in shop_item_arr:
-                                if 'buff' in str(item):
+                                if '*buff_' in str(item):
                                     out_shop_buff_arr.append(str(item[0]).upper() + '  -  ' + str(item[1]) + ' ©\n')
+                                elif '**mega_' in str(item):
+                                    out_shop_megaitem_arr.append(str(item[0]).upper() + '  -  ' + str(item[1]) + ' ▽\n')
                                 else:
                                     out_shop_item_arr.append(str(item[0]).upper() + '  -  ' + str(item[1]) + ' ©\n')
                             out_shop_item_str = ''.join(out_shop_item_arr).replace('_', ' ')
                             out_shop_buff_str = ''.join(out_shop_buff_arr).replace('_', ' ')
-                            await ctx.message.channel.send('```\n ---------=======####$$$$$ SHOP $$$$$####=======--------- \n\n ITEMS:\n{}\n\n ROLL BUFFS:\n{}```'.format(out_shop_item_str, out_shop_buff_str))
+                            out_shop_megaitem_str = ''.join(out_shop_megaitem_arr).replace('_', ' ')
+                            await ctx.message.channel.send('```\n ---------=======####$$$$$ SHOP $$$$$####=======--------- \n\n ITEMS:\n{}\n\n MEGA_ITEMS:\n{}\n\n ROLL BUFFS:\n{}```'.format(out_shop_item_str, out_shop_megaitem_str, out_shop_buff_str))
 
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
