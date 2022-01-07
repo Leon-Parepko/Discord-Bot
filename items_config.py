@@ -1,4 +1,32 @@
+
+class item:
+    def __init__(self, name, id, description, art, stat):
+        self.name = str(name)
+        self.id = int(id)
+        self.description = str(description)
+        self.art = str(art)
+        self.stat = stat
+
+
+
+class trophie:
+    def __init__(self, name, id, description, art, stat):
+        self.name = str(name)
+        self.id = int(id)
+        self.description = str(description)
+        self.art = str(art)
+        self.stat = stat
+
+
+
+
+item_test = item("qweqwe", 0000, "description", "art", [1, 2, 3])
+
+
+
+
 class arts:
+
     def trophy_select(trophy):
         test_trophy_1 = "test_description1: \n\n test_art1"
         neko_paradise = "...\n\n..."

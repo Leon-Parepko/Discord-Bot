@@ -1,16 +1,6 @@
 import random
 
 
-# card_arr = []
-# item_arr = []
-# for i in range(0, 24):
-#     item_arr.append(i)
-# print(item_arr)
-# for i in range(1, 8):
-#     print((i*8-8) - (i*9 - i))
-#     print(item_arr[i*8-8:i*9 - i + 1])
-#     # card_arr.append(item_arr[i*8-9:i*8])
-#     print(card_arr)
 
 
 def roll_buff():
@@ -24,17 +14,29 @@ def roll_buff():
 
 
 def roll(event):
-    items = [0, 5, 10, 25, 50, 100, 'roll_buff', 200, 'item', 500, 'megacoins', 'ban_1', 1000, 'ban_5', 2000, 'double_balance', 'ban_60', 'trophy']
+    # 19 elements total
+    items =     [0,     5,      10,     25,     50,     100,    'roll_buff', 200,    'item', 500,    'megacoins', 'ban_1', 1000, 'ban_5', 2000, 'double_balance', 'ban_60', 'trophy', 'half_balance']
+    weights =   [1.45,   1.4,    1.3,    1.1,   0.6,    0.65,    0.6,        0.45,    0.15,  0.35,    0.1,         0.08,   0.08,  0.04,   0.04,  0.02,             0.007,     0.01,     0.007]
     megaroll_items = (100, 200, 'item', 'trophy')
-    weights = [0.1, 0.1, 0.1, 0.1, 0.1, 1.1, 0.1, 0.1, 2.1, 0.1, 0.1, 1000.1, 0.1, 0.1, 0.1, 0.1, 0.1, 3.1]
+
 
     if event == "double_pos":
-        weights[0] = weights[0] * 2        #JUST AN EXAMPLE
-        pass
+        weights[0] = weights[0] / 2
+        weights[1] = weights[1] / 2
+        weights[2] = weights[2] / 2
+        weights[11] = weights[11] / 2
+        weights[13] = weights[13] / 2
+        weights[16] = weights[16] / 2
+        weights[18] = weights[18] / 2
 
     elif event == "double_neg":
-        weights[1] = weights[1] * 2        # JUST AN EXAMPLE
-        pass
+        weights[0] = weights[0] * 1.3
+        weights[1] = weights[1] * 1.3
+        weights[2] = weights[2] * 1.3
+        weights[11] = weights[11] * 10
+        weights[13] = weights[13] * 10
+        weights[16] = weights[16] * 10
+        weights[18] = weights[18] * 10
 
     elif event == "megaroll":
         counter = 0
@@ -63,7 +65,7 @@ def roll(event):
     return result
 
 
+roll("none")
 
-
-
-# print(roll("none"))
+# for i in range(0, 100):
+#     print(roll("double_neg"))

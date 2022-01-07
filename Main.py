@@ -8,7 +8,6 @@ import sys
 import logging
 import sqlite3
 import functional
-import text_art
 
 
 
@@ -17,6 +16,7 @@ import text_art
 #--------------------------VARIABLES & CLASSES INIT----------------------------------
 config_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
 win_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
+loose_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
 
@@ -35,6 +35,30 @@ class Config:
         self.version = version
 
 
+
+
+class Item:
+    def __init__(self, id, name, type, rank, sell_price, buy_price, stat, description, art):
+        self.id = int(id)
+        self.name = str(name)
+        self.type = str(type)
+        self.rank = int(rank)
+        self.sell_price = int(sell_price)
+        self.buy_price = int(buy_price)
+        self.stat = stat
+        self.description = str(description)
+        self.art = str(art)
+
+    def info_window(self):
+        text = ''
+
+        if self.type == "item":
+            text = '``` -------========%%%% {} %%%%========-------\n\n  {}\n\n{}```'.format(self.name.upper(), self.description, self.art)
+
+        elif self.type == "trophy":
+            text = '``` -------========#### {} ####========-------\n\n  {}\n\n{}```'.format(self.name.upper(), self.description, self.art)
+
+        return text
 
 
 
@@ -148,12 +172,61 @@ def add_sub_user_megacoins(ctx, sum):
     db_set("UPDATE roulette SET megacoins = '{}' WHERE user_id = {}".format(int(user_megacoins) + int(sum), int(ctx.message.author.id)))
 
 
+
+
+def get_all_items():
+
+    all_items = []
+
+    items1 = db_get("SELECT item, megaitem FROM roulette_roll_items")
+    items2 = db_get("SELECT item FROM roulette_shop")
+    items3 = db_get("SELECT trophy, megatrophy FROM roulette_roll_trophies")
+
+    items1 = items1.__add__(items2).__add__(items3)
+
+    for i in items1:
+        if i is not None:
+            for j in i:
+                if j is not None:
+                    all_items.append(j)
+    return all_items
+
+# print(get_all_items())
+
+def get_item(name=None, id=None):
+
+    try:
+        if name is not None:
+            db_raw_data = db_get("SELECT id, name, type, rank, sell_price, buy_price, stat, description, art FROM roulette_all_items WHERE name = '{}'".format(str(name)))[0]
+        elif id is not None:
+            db_raw_data = db_get("SELECT id, name, type, rank, sell_price, buy_price, stat, description, art FROM roulette_all_items WHERE id = {}".format(int(id)))[0]
+
+        stat_raw = map(float, str(db_raw_data[6]).split(" "))
+
+        stat = []
+        for i in stat_raw:
+            stat.append(i)
+
+        item_ = Item(db_raw_data[0], db_raw_data[1], db_raw_data[2], db_raw_data[3], db_raw_data[4], db_raw_data[5], stat, db_raw_data[7], db_raw_data[8])
+        return item_
+
+    except:
+        return None
+
+
+print(get_item(name="ban_hammer").info_window())
+
+
+
+
+
 class phrases:
     def win(self):
         return str(random.choice(parse_file(win_words_file_path)))
 
     def loose(self):
-        pass
+        return str(random.choice(parse_file(loose_words_file_path)))
+
 
 
 #-----------------CUSTOM ERRORS------------------
@@ -353,7 +426,6 @@ try:
                         await ctx.message.channel.send("You are already registered!")
 
 
-#               NOT WORK
                 elif operation[0] == "roll":
                     if check_valid_user_roulette(ctx):
                         user_coins = int(db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
@@ -372,7 +444,7 @@ try:
 
                             elif "ban" in roll_result:
                                 ban_time = roll_result.split("_")[1]
-                                await ctx.message.channel.send("{}\nYou have won BAN on {} minutes!".format(Phrases.win(), ban_time))
+                                await ctx.message.channel.send("{}\nYou have won BAN on {} minutes!".format(Phrases.loose(), ban_time))
                                 await ban(ctx, ctx.message.author, ban_time, "Roulette", True)
 
 
@@ -404,7 +476,7 @@ try:
                                         roll_trophies_reduce.remove(trophy)
 
                                 if roll_trophies_reduce == []:
-                                    await ctx.message.channel.send(" YOU'R MAD! PLEASE **STOP THIS!**\nYou already have all the trophies.")
+                                    await ctx.message.channel.send("YOU'R MAD! PLEASE **STOP THIS!**\nYou already have all the trophies.")
 
                                 else:
                                     rand_trophy = random.choice(roll_trophies_reduce)[0]
@@ -423,6 +495,11 @@ try:
                                 await ctx.message.channel.send("{}\nYour balance is doubled, now it is: {} © !".format(Phrases.win(), int(user_coins) * 2))
 
 
+                            elif roll_result == "half_balance":
+                                add_sub_user_coins(ctx, -(int(user_coins) // 2))
+                                await ctx.message.channel.send("{}\nYour balance reduced in twice, now it is: {} © !".format(Phrases.loose(), int(user_coins) * 2))
+
+
                             elif roll_result == "megacoin":
                                 await ctx.message.channel.send(
                                     "{}\nYour balance is doubled, now it is: {} © !".format(Phrases.win(), int(user_coins) * 2))
@@ -437,8 +514,7 @@ try:
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
-
-#               NOT WORK
+#               -------------TEST------------
                 elif operation[0] == "megaroll":
                     if check_valid_user_roulette(ctx):
                         user_coins = int(db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
@@ -451,14 +527,55 @@ try:
                                 add_sub_user_coins(ctx, megaroll_result)
                                 await ctx.message.channel.send("{}\nYou have won {} © !\nTotal balance is: {} ©".format(Phrases.win(), megaroll_result, user_coins + megaroll_result))
 
-
                             elif megaroll_result == "item":
-                                pass
+                                user_items = str(db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
+                                roll_items = db_get("SELECT item, megaitem FROM roulette_roll_items")
+                                roll_items_without_none = []
+                                roll_items_reduce = []
 
+                        # THIS SHOULD BE CHANGED!!!!
+                                for i in roll_items:
+                                    for j in i:
+                                        if j is not None:
+                                            roll_items_without_none.append(j)
+                                            roll_items_reduce.append(j)
+
+                                for item in roll_items_without_none:
+                                    if item[0] in user_items:
+                                        roll_items_reduce.remove(item)
+
+                                if roll_items_reduce == []:
+                                    await ctx.message.channel.send("PLEASE **STOP PLAYING THIS SHIT!**\nYou already have all the items.")
+
+                                else:
+                                    rand_item = random.choice(roll_items_reduce)[0]
+                                    add_user_item(ctx, rand_item)
+                                    await ctx.message.channel.send("{}\nYou have won new item: {} !".format(Phrases.win(), str(rand_item).upper()))
 
                             elif megaroll_result == "trophy":
-                                pass
+                                user_trophies = str(db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
+                                roll_trophies = db_get("SELECT trophy, megatrophy FROM roulette_roll_trophies")
+                                roll_trophies_without_none = []
+                                roll_trophies_reduce = []
 
+                        # THIS SHOULD BE CHANGED!!!!
+                                for i in roll_trophies:
+                                    for j in i:
+                                        if j is not None:
+                                            roll_trophies_without_none.append(j)
+                                            roll_trophies_reduce.append(j)
+
+                                for item in roll_trophies_without_none:
+                                    if item[0] in user_trophies:
+                                        roll_trophies_reduce.remove(item)
+
+                                if roll_trophies_reduce == []:
+                                    await ctx.message.channel.send("YOU'R MAD! PLEASE **STOP THIS!**\nYou already have all the trophies.")
+
+                                else:
+                                    rand_trophy = random.choice(roll_trophies_reduce)[0]
+                                    add_user_trophy(ctx, rand_trophy)
+                                    await ctx.message.channel.send("{}\nYou have won new trophy: {} !".format(Phrases.win(), str(rand_trophy).upper()))
 
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
@@ -499,7 +616,11 @@ try:
                             user_trophy_arr = db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
                             for i in user_trophy_arr:
                                 if user_str == str(i):
-                                    await ctx.message.channel.send('``` -------========#### {} ####========-------\n\n {}```'.format(user_str.upper(), text_art.arts.trophy_select(user_str)))
+                                    user_trophy = get_item(name=user_str)
+                                    if user_trophy is not None:
+                                        await ctx.message.channel.send(get_item(name=user_str).info_window())
+                                    else:
+                                        await ctx.message.channel.send("You don't have such trophy!")
 
                         except IndexError:
                                 await ctx.message.channel.send('```\n -------====++++#### TROPHY_HALL ####++++====------- \n\n {}```'.format(db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]))
@@ -514,7 +635,11 @@ try:
                             user_item_arr = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
                             for i in user_item_arr:
                                 if user_str == str(i):
-                                    await ctx.message.channel.send('``` -------========%%%% {} %%%%========-------\n\n {}```'.format(user_str.upper(), text_art.arts.item_select(user_str)))
+                                    user_item = get_item(name=user_str)
+                                    if user_item is not None:
+                                        await ctx.message.channel.send(get_item(name=user_str).info_window())
+                                    else:
+                                        await ctx.message.channel.send("You don't have such item!")
 
                         except IndexError:
                                 await ctx.message.channel.send('```\n -------=====****%%%% ITEMS %%%%****=====------- \n\n {}```'.format(db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]))
@@ -611,7 +736,9 @@ try:
                 await ctx.message.channel.send("Try this commands to play 'THE ROULETTE GAME': ```{}roulette help\n{}roulette start```".format(config.prefix, config.prefix))
 
 
-
+    @bot.command()
+    async def anecdote(ctx):
+        pass
 
 
 #++++++++++++++++++++SCHEDULE_COMMANDS++++++++++++++++++++++
@@ -623,7 +750,7 @@ try:
     bot.run(config.token)
 
 
-#-----------------ERROR CATCHER------------------
+#-----------------ERROR_CATCHER------------------
 except Exception as e:
     logging.error(e)
     bot.close()
