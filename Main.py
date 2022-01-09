@@ -35,8 +35,6 @@ class Config:
         self.version = version
 
 
-
-
 class Item:
     def __init__(self, id, name, type, rank, sell_price, buy_price, stat, description, art):
         self.id = int(id)
@@ -51,13 +49,10 @@ class Item:
 
     def info_window(self):
         text = ''
-
         if self.type == "item":
-            text = '``` -------========%%%% {} %%%%========-------\n\n  {}\n\n{}```'.format(self.name.upper(), self.description, self.art)
-
+            text = '``` -------========%%%% {} %%%%========-------\n\n Description: {}\nRank: {}\n\n{}```'.format(self.name.upper(), self.rank , self.description, self.art)
         elif self.type == "trophy":
-            text = '``` -------========#### {} ####========-------\n\n  {}\n\n{}```'.format(self.name.upper(), self.description, self.art)
-
+            text = '``` -------========#### {} ####========-------\n\n Description: {}\nRank: {}\n\n{}```'.format(self.name.upper(), self.rank, self.description, self.art)
         return text
 
 
@@ -172,9 +167,20 @@ def add_sub_user_megacoins(ctx, sum):
     db_set("UPDATE roulette SET megacoins = '{}' WHERE user_id = {}".format(int(user_megacoins) + int(sum), int(ctx.message.author.id)))
 
 
+def count_user_mult(ctx):
+    user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+    roll_mult = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    for item in user_items:
+        item__ = get_item(name=str(item))
+        if item__ is not None:
+            counter = 0
+            for num in item__.stat:
+                roll_mult[counter] = num * roll_mult[counter]
+                counter += 1
+    return roll_mult
 
-
-def get_all_items():
+# Just for admins
+def get_all_items_in_system():
 
     all_items = []
 
@@ -184,6 +190,7 @@ def get_all_items():
 
     items1 = items1.__add__(items2).__add__(items3)
 
+    # Yeh, it looks like a bullshit!!!
     for i in items1:
         if i is not None:
             for j in i:
@@ -191,10 +198,9 @@ def get_all_items():
                     all_items.append(j)
     return all_items
 
-# print(get_all_items())
+print(get_all_items_in_system())
 
 def get_item(name=None, id=None):
-
     try:
         if name is not None:
             db_raw_data = db_get("SELECT id, name, type, rank, sell_price, buy_price, stat, description, art FROM roulette_all_items WHERE name = '{}'".format(str(name)))[0]
@@ -212,11 +218,6 @@ def get_item(name=None, id=None):
 
     except:
         return None
-
-
-print(get_item(name="ban_hammer").info_window())
-
-
 
 
 
@@ -238,6 +239,12 @@ class CustomError(Error):
 
 
 
+
+
+
+
+user_data_raw = db_get("SELECT coins, megacoins, roll_counter, items, roll_counter, level FROM roulette WHERE user_id = {}".format(345241474214002690))[0]
+print(user_data_raw)
 
 
 
@@ -420,7 +427,7 @@ try:
                         pass
 
                     if check_valid_user_roulette(ctx) == False:
-                        db_set("INSERT INTO roulette (user_id, coins, megacoins, items, trophies, roll_counter, daily) VALUES({}, {}, 0, 'default_item', 'default_trophy', 0, 0)".format(int(ctx.message.author.id), start_coins))
+                        db_set("INSERT INTO roulette (user_id, coins, megacoins, items, trophies, roll_counter, daily, level) VALUES({}, {}, 0, 'default_item', 'default_trophy', 0, 0, 1)".format(int(ctx.message.author.id), start_coins))
                         await ctx.message.channel.send("New user have been added successfully!")
                     else:
                         await ctx.message.channel.send("You are already registered!")
@@ -432,7 +439,10 @@ try:
                         if user_coins >= roll_price:
                             user_coins -= roll_price
                             user_roll_buff = db_get("SELECT roll_buff FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
-                            roll_result = functional.roll(str(user_roll_buff))
+                            user_roll_mult = count_user_mult(ctx)
+
+                            roll_result = functional.roll(user_mult=user_roll_mult, event=str(user_roll_buff))
+
                             add_sub_user_coins(ctx, -roll_price)
                             db_set("UPDATE roulette SET roll_buff = NULL WHERE user_id = {}".format(int(ctx.message.author.id)))
                             print(roll_result, user_roll_buff)
@@ -521,7 +531,7 @@ try:
                         user_megacoins = int(db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
                         if user_megacoins >= 1:
                             db_set("UPDATE roulette SET megacoins = {} WHERE user_id = {}".format(int(user_megacoins - 1), int(ctx.message.author.id)))
-                            megaroll_result = functional.roll("megaroll")
+                            megaroll_result = functional.roll(event="megaroll")
 
                             if type(megaroll_result) == int:
                                 add_sub_user_coins(ctx, megaroll_result)
@@ -583,15 +593,15 @@ try:
 
                 elif operation[0] == "profile":
                     if check_valid_user_roulette(ctx):
-                        user =      str(ctx.message.author).split("#")[0]
 
-                        coins =     db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+                        user_data_raw = db_get("SELECT coins, megacoins, roll_counter, items, roll_counter, level FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0]
 
-                        megacoins =  db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
-
-                        rolls =     db_get("SELECT roll_counter FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
-
-                        items_arr = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+                        user = str(ctx.message.author).split("#")[0]
+                        coins = user_data_raw[0]
+                        megacoins = user_data_raw[1]
+                        rolls = user_data_raw[2]
+                        items_arr = user_data_raw[3].split(" ")
+                        level = user_data_raw[4]
                         if len(items_arr) >= 8:
                             items_arr = items_arr[0:8]
                             items_arr.append("...")
@@ -603,7 +613,7 @@ try:
                             trophies_arr.append("...")
                         trophies = ''.join(map(lambda x: x + "  ", map(str, trophies_arr)))
 
-                        await ctx.message.channel.send('```\n --------------====PROFILE====-------------- \n\n UserName:     {}\n Coins:        {} ©\n Megacoins:    {} ▽\n Rolls Total:  {}\n Trophies:     {}\n Items:        {}```'.format(user, coins, megacoins, rolls, trophies, items))
+                        await ctx.message.channel.send('```\n --------------====PROFILE====-------------- \n\n UserName:     {}\n Level:        {}\n Coins:        {} ©\n Megacoins:    {} ▽\n Rolls Total:  {}\n Trophies:     {}\n Items:        {}```'.format(user, level, coins, megacoins, rolls, trophies, items))
 
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))

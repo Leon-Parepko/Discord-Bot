@@ -1,6 +1,9 @@
 import random
 
 
+# EXAMPLE: 10 - ten times positive, -10 - ten times negative
+global chance_corrector
+chance_corrector = 0
 
 
 def roll_buff():
@@ -13,11 +16,42 @@ def roll_buff():
     return result
 
 
-def roll(event):
+def roll(user_mult=None, event=None):
+    global chance_corrector
+
     # 19 elements total
     items =     [0,     5,      10,     25,     50,     100,    'roll_buff', 200,    'item', 500,    'megacoins', 'ban_1', 1000, 'ban_5', 2000, 'double_balance', 'ban_60', 'trophy', 'half_balance']
-    weights =   [1.45,   1.4,    1.3,    1.1,   0.6,    0.65,    0.6,        0.45,    0.15,  0.35,    0.1,         0.08,   0.08,  0.04,   0.04,  0.02,             0.007,     0.01,     0.007]
+    weights =   [1.45,  1.4,    1.3,    1.1,    0.6,    0.65,    0.6,        0.45,    0.15,  0.35,    0.1,         0.08,   0.08,  0.04,   0.04,  0.02,             0.007,    0.01,     0.007]
     megaroll_items = (100, 200, 'item', 'trophy')
+    neg_items = [0, 5, 10, 'ban_1', 'ban_5', 'ban_60', 'half_balance']
+
+    if user_mult is not None:
+        counter = 0
+        for num in weights:
+            weights[counter] = float(num * user_mult[counter])
+            counter += 1
+
+        if chance_corrector > 0:
+            weights[0] = weights[0] + chance_corrector ** 2 / 40
+            weights[1] = weights[1] + chance_corrector ** 2 / 40
+            weights[2] = weights[2] + chance_corrector ** 2 / 40
+            weights[11] = weights[11] + chance_corrector ** 2 / 110
+            weights[13] = weights[13] + chance_corrector ** 2 / 110
+            weights[16] = weights[16] + chance_corrector ** 2 / 110
+            weights[18] = weights[18] + chance_corrector ** 2 / 110
+
+
+        elif chance_corrector < 0:
+            weights[0] = weights[0] - chance_corrector ** 2 / 90
+            weights[1] = weights[1] - chance_corrector ** 2 / 90
+            weights[2] = weights[2] - chance_corrector ** 2 / 90
+            weights[11] = weights[11] - chance_corrector ** 2 / 170
+            weights[13] = weights[13] - chance_corrector ** 2 / 170
+            weights[16] = weights[16] - chance_corrector ** 2 / 170
+            weights[18] = weights[18] - chance_corrector ** 2 / 170
+
+
+    # print(chance_corrector, weights)
 
 
     if event == "double_pos":
@@ -48,15 +82,26 @@ def roll(event):
             else:
                 weights.pop(counter)
         items = items_new
-        # print(items, "\n", weights)
-
-
-    # NEED CHANCE CORRECTION
 
 
     weights = map(lambda x: x + random.uniform(-0.05, 0.05), weights)
 
     result = random.choices(items, weights=weights)[0]
+
+    # print(result)
+
+
+
+    if result in neg_items:
+        if chance_corrector > 0:
+            chance_corrector = 0
+        chance_corrector -= 1
+    else:
+        if chance_corrector < 0:
+            chance_corrector = 0
+        chance_corrector += 1
+
+
 
     if type(result) == int:
         result += random.randint(-(round(result / 10)), round(result / 10))
@@ -65,7 +110,5 @@ def roll(event):
     return result
 
 
-roll("none")
-
-# for i in range(0, 100):
-#     print(roll("double_neg"))
+for i in range(0, 100):
+    roll(user_mult=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
