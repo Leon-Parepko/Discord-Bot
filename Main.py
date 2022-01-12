@@ -11,19 +11,19 @@ import functional
 
 
 
-
-
 #--------------------------VARIABLES & CLASSES INIT----------------------------------
 config_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
 win_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
-loose_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
+loose_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\loose_words.txt"
+roulette_db_name = 'database.db'
+anecdote_db_name = 'anecdote.db'
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
 
-Start_Coins = 500
 roulette_bonus_key = "TestBonusTestBonusTestBonus"
+Start_Coins = 500
 daily_bonus = 200
-roll_price = 20
+roll_price = 25
 
 
 class Config:
@@ -45,14 +45,22 @@ class Item:
         self.buy_price = int(buy_price)
         self.stat = stat
         self.description = str(description)
-        self.art = str(art)
+        self.art = art
 
     def info_window(self):
-        text = ''
+        text = ""
+        # rank_stars = ''
+        #
+        # for i in range(0, self.rank):
+        #     rank_stars += '*'
+
         if self.type == "item":
-            text = '``` -------========%%%% {} %%%%========-------\n\n Description: {}\nRank: {}\n\n{}```'.format(self.name.upper(), self.rank , self.description, self.art)
+            text = '``` -------========%%%% {} %%%%========-------\n\nType: {}\nRank: {}\n\nDescription: {}\n\n{}```'.format(self.name.upper(), self.type, self.rank, self.description, self.art)
+
         elif self.type == "trophy":
-            text = '``` -------========#### {} ####========-------\n\n Description: {}\nRank: {}\n\n{}```'.format(self.name.upper(), self.rank, self.description, self.art)
+            text = '``` -------========#### {} ####========-------\n\nType: {}\nRank: {}\n\nDescription: {}\n\n{}```'.format(self.name.upper(), self.type, self.rank, self.description, self.art)
+
+        text = text.replace("\\n", "\n")
         return text
 
 
@@ -75,7 +83,7 @@ def parse_file(config_file_path):
 
 
 def db_get(exe):
-    with sqlite3.connect('database.db') as db:
+    with sqlite3.connect(roulette_db_name) as db:
         cursor = db.cursor()
         data = cursor.execute("""{}""".format(str(exe)))
         arr = []
@@ -85,7 +93,7 @@ def db_get(exe):
 
 
 def db_set(exe):
-    with sqlite3.connect('database.db') as db:
+    with sqlite3.connect(roulette_db_name) as db:
         cursor = db.cursor()
         cursor.execute("""{}""".format(str(exe)))
 
@@ -198,7 +206,6 @@ def get_all_items_in_system():
                     all_items.append(j)
     return all_items
 
-print(get_all_items_in_system())
 
 def get_item(name=None, id=None):
     try:
@@ -238,13 +245,6 @@ class CustomError(Error):
     pass
 
 
-
-
-
-
-
-user_data_raw = db_get("SELECT coins, megacoins, roll_counter, items, roll_counter, level FROM roulette WHERE user_id = {}".format(345241474214002690))[0]
-print(user_data_raw)
 
 
 
@@ -462,6 +462,7 @@ try:
                                 user_items = str(db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
                                 roll_items = db_get("SELECT item FROM roulette_roll_items")
                                 roll_items_reduce = db_get("SELECT item FROM roulette_roll_items")
+                                roll_items_reduce_weights = []
 
                                 for item in roll_items:
                                     if item[0] in user_items:
@@ -471,7 +472,10 @@ try:
                                     await ctx.message.channel.send("PLEASE **STOP PLAYING THIS SHIT!**\nYou already have all the items.")
 
                                 else:
-                                    rand_item = random.choice(roll_items_reduce)[0]
+                                    for item in roll_items_reduce:
+                                        roll_items_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(item[0])))[0][0]) ** -1.7)
+
+                                    rand_item = functional.roll_items(roll_items_reduce, roll_items_reduce_weights)[0]
                                     add_user_item(ctx, rand_item)
                                     await ctx.message.channel.send("{}\nYou have won new item: {} !".format(Phrases.win(), str(rand_item).upper()))
 
@@ -480,6 +484,7 @@ try:
                                 user_trophies = str(db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
                                 roll_trophies = db_get("SELECT trophy FROM roulette_roll_trophies")
                                 roll_trophies_reduce = db_get("SELECT trophy FROM roulette_roll_trophies")
+                                roll_trophies_reduce_weights = []
 
                                 for trophy in roll_trophies:
                                     if trophy[0] in user_trophies:
@@ -489,7 +494,10 @@ try:
                                     await ctx.message.channel.send("YOU'R MAD! PLEASE **STOP THIS!**\nYou already have all the trophies.")
 
                                 else:
-                                    rand_trophy = random.choice(roll_trophies_reduce)[0]
+                                    for trophy in roll_trophies_reduce:
+                                        roll_trophies_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(trophy[0])))[0][0]) ** -1.7)
+
+                                    rand_trophy = functional.roll_items(roll_trophies, roll_trophies_reduce_weights)[0]
                                     add_user_trophy(ctx, rand_trophy)
                                     await ctx.message.channel.send("{}\nYou have won new trophy: {} !".format(Phrases.win(), str(rand_trophy).upper()))
 
@@ -502,7 +510,7 @@ try:
 
                             elif roll_result == "double_balance":
                                 add_sub_user_coins(ctx, int(user_coins))
-                                await ctx.message.channel.send("{}\nYour balance is doubled, now it is: {} © !".format(Phrases.win(), int(user_coins) * 2))
+                                await ctx.message.channel.send("{}\nYour **balance is doubled**, now it is: {} © !".format(Phrases.win(), int(user_coins) * 2))
 
 
                             elif roll_result == "half_balance":
@@ -510,9 +518,10 @@ try:
                                 await ctx.message.channel.send("{}\nYour balance reduced in twice, now it is: {} © !".format(Phrases.loose(), int(user_coins) * 2))
 
 
-                            elif roll_result == "megacoin":
-                                await ctx.message.channel.send(
-                                    "{}\nYour balance is doubled, now it is: {} © !".format(Phrases.win(), int(user_coins) * 2))
+                            elif roll_result == "megacoins":
+                                add_sub_user_megacoins(ctx, 1)
+                                user_megacoins = int(db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
+                                await ctx.message.channel.send("{}\nYou have won 1 megacoin!\nTotal balance is: {} ▽".format(Phrases.win(), user_megacoins))
 
 
                             user_rolls = int(db_get("SELECT roll_counter FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
@@ -533,6 +542,8 @@ try:
                             db_set("UPDATE roulette SET megacoins = {} WHERE user_id = {}".format(int(user_megacoins - 1), int(ctx.message.author.id)))
                             megaroll_result = functional.roll(event="megaroll")
 
+                            print(megaroll_result)
+
                             if type(megaroll_result) == int:
                                 add_sub_user_coins(ctx, megaroll_result)
                                 await ctx.message.channel.send("{}\nYou have won {} © !\nTotal balance is: {} ©".format(Phrases.win(), megaroll_result, user_coins + megaroll_result))
@@ -551,16 +562,20 @@ try:
                                             roll_items_reduce.append(j)
 
                                 for item in roll_items_without_none:
-                                    if item[0] in user_items:
+                                    if item in user_items:
                                         roll_items_reduce.remove(item)
 
                                 if roll_items_reduce == []:
                                     await ctx.message.channel.send("PLEASE **STOP PLAYING THIS SHIT!**\nYou already have all the items.")
 
                                 else:
-                                    rand_item = random.choice(roll_items_reduce)[0]
-                                    add_user_item(ctx, rand_item)
+                                    roll_items_reduce_weights = []
+                                    for item in roll_items_reduce:
+                                        roll_items_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(item)))[0][0]) ** -1.7)
+
+                                    rand_item = functional.roll_items(roll_items_reduce, roll_items_reduce_weights)
                                     await ctx.message.channel.send("{}\nYou have won new item: {} !".format(Phrases.win(), str(rand_item).upper()))
+
 
                             elif megaroll_result == "trophy":
                                 user_trophies = str(db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
@@ -575,15 +590,19 @@ try:
                                             roll_trophies_without_none.append(j)
                                             roll_trophies_reduce.append(j)
 
-                                for item in roll_trophies_without_none:
-                                    if item[0] in user_trophies:
-                                        roll_trophies_reduce.remove(item)
+                                for trophy in roll_trophies_without_none:
+                                    if trophy in user_trophies:
+                                        roll_trophies_reduce.remove(trophy)
 
                                 if roll_trophies_reduce == []:
                                     await ctx.message.channel.send("YOU'R MAD! PLEASE **STOP THIS!**\nYou already have all the trophies.")
 
                                 else:
-                                    rand_trophy = random.choice(roll_trophies_reduce)[0]
+                                    roll_trophies_reduce_weights = []
+                                    for trophy in roll_trophies_reduce:
+                                        roll_trophies_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(trophy)))[0][0]) ** -1.7)
+
+                                    rand_trophy = functional.roll_items(roll_trophies_reduce, roll_trophies_reduce_weights)
                                     add_user_trophy(ctx, rand_trophy)
                                     await ctx.message.channel.send("{}\nYou have won new trophy: {} !".format(Phrases.win(), str(rand_trophy).upper()))
 
@@ -594,7 +613,7 @@ try:
                 elif operation[0] == "profile":
                     if check_valid_user_roulette(ctx):
 
-                        user_data_raw = db_get("SELECT coins, megacoins, roll_counter, items, roll_counter, level FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0]
+                        user_data_raw = db_get("SELECT coins, megacoins, roll_counter, items, level FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0]
 
                         user = str(ctx.message.author).split("#")[0]
                         coins = user_data_raw[0]
@@ -719,7 +738,7 @@ try:
                             coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
                             add_sub_user_coins(ctx, int(daily_bonus))
                             db_set("UPDATE roulette SET daily = 1 WHERE user_id = {}".format(int(ctx.message.author.id)))
-                            await ctx.message.channel.send("Your balance is: {} ©".format(coins + daily_bonus))
+                            await ctx.message.channel.send("Daily bonus {} ©\nYour balance is: {} ©".format(daily_bonus, coins + daily_bonus))
                         else:
                             await ctx.message.channel.send("You have already used daily bonus. Try next day.")
                     else:
@@ -748,7 +767,17 @@ try:
 
     @bot.command()
     async def anecdote(ctx):
-        pass
+        with sqlite3.connect(anecdote_db_name) as anec_db:
+            cursor = anec_db.cursor()
+            cursor.execute("""SELECT * FROM anecdote_table""")
+            rows = cursor.fetchall()
+            rand_id = random.randint(1, len(rows))
+
+            anecdote_text = cursor.execute("""SELECT anecdote_text FROM anecdote_table WHERE id = {}""".format(rand_id))
+
+            for text in anecdote_text:
+                await ctx.message.channel.send("**ВНИМАНИЕ АНЕКДОТ:** {}".format(str(text[0])))
+
 
 
 #++++++++++++++++++++SCHEDULE_COMMANDS++++++++++++++++++++++

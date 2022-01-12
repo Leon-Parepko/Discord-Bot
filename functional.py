@@ -16,13 +16,19 @@ def roll_buff():
     return result
 
 
+def roll_items(items, weights):
+    weights = map(lambda x: x + random.uniform(-0.005, 0.005), weights)
+    result = random.choices(items, weights=weights)[0]
+    return result
+
+
 def roll(user_mult=None, event=None):
     global chance_corrector
 
     # 19 elements total
     items =     [0,     5,      10,     25,     50,     100,    'roll_buff', 200,    'item', 500,    'megacoins', 'ban_1', 1000, 'ban_5', 2000, 'double_balance', 'ban_60', 'trophy', 'half_balance']
-    weights =   [1.45,  1.4,    1.3,    1.1,    0.6,    0.65,    0.6,        0.45,    0.15,  0.35,    0.1,         0.08,   0.08,  0.04,   0.04,  0.02,             0.007,    0.01,     0.007]
-    megaroll_items = (100, 200, 'item', 'trophy')
+    weights =   [1.65,  1.6,    1.5,    1.3,    0.65,    0.5,    0.6,        0.35,    0.15,  0.25,    0.1,         0.08,   0.08,  0.04,   0.04,  0.02,             0.007,    0.01,     0.007]
+    megaroll_items = (100, 200, 500, 1000, 'item', 'trophy')
     neg_items = [0, 5, 10, 'ban_1', 'ban_5', 'ban_60', 'half_balance']
 
     if user_mult is not None:
@@ -39,7 +45,6 @@ def roll(user_mult=None, event=None):
             weights[13] = weights[13] + chance_corrector ** 2 / 110
             weights[16] = weights[16] + chance_corrector ** 2 / 110
             weights[18] = weights[18] + chance_corrector ** 2 / 110
-
 
         elif chance_corrector < 0:
             weights[0] = weights[0] - chance_corrector ** 2 / 90
@@ -77,12 +82,11 @@ def roll(user_mult=None, event=None):
         items_new = []
         for item in items:
             if item in megaroll_items:
-                items_new.append(str(item))
-                counter +=1
+                items_new.append(item)
+                counter += 1
             else:
                 weights.pop(counter)
         items = items_new
-
 
     weights = map(lambda x: x + random.uniform(-0.05, 0.05), weights)
 
@@ -110,5 +114,5 @@ def roll(user_mult=None, event=None):
     return result
 
 
-for i in range(0, 100):
-    roll(user_mult=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+# for i in range(0, 100):
+#     roll(user_mult=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
