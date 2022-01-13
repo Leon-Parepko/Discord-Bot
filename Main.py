@@ -23,7 +23,7 @@ logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', fo
 roulette_bonus_key = "TestBonusTestBonusTestBonus"
 Start_Coins = 500
 daily_bonus = 200
-roll_price = 25
+roll_price = 35
 
 
 class Config:
@@ -533,7 +533,7 @@ try:
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
-#               -------------TEST------------
+
                 elif operation[0] == "megaroll":
                     if check_valid_user_roulette(ctx):
                         user_coins = int(db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
@@ -684,6 +684,9 @@ try:
                         try:
                             user_str = str(operation[1])
                             user_coins = db_get("SELECT coins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
+
+                            flag = True
+
                             for item in shop_item_arr:
                                 if user_str.upper() == str(item[0]).upper():
                                     if user_coins >= item[1]:
@@ -695,18 +698,27 @@ try:
                                             user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
                                             if str(item[0]) not in str(user_items):
                                                 if "**mega_" in str(item[0]):
-                                                    add_user_item(ctx, item[0].split("**mega_")[0])
+                                                    add_user_item(ctx, item[0])
                                                     add_sub_user_megacoins(ctx, -int(item[1]))
+                                                    user_megacoins = int(db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
+                                                    await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ▽'.format(str(item[0]).upper(), int(user_megacoins)))
+
                                                 else:
                                                     add_user_item(ctx, item[0])
                                                     add_sub_user_coins(ctx, -int(item[1]))
-                                                await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).upper(), int(user_coins) - int(item[1])))
+                                                    await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).upper(), int(user_coins) - int(item[1])))
+                                                flag = False
                                                 break
                                             else:
                                                 await ctx.message.channel.send('You already have this item.')
+                                                flag = False
+                                                break
                                     else:
                                         await ctx.message.channel.send('You dont have enough money to buy this item!')
-                            await ctx.message.channel.send('There is no such item.\nTry this commands: ```{}roulette shop item\n{}roulette shop **mega_item\n{}roulette shop *buff_item```'.format(config.prefix, config.prefix, config.prefix))
+                                        flag = False
+                                        break
+                            if flag:
+                                await ctx.message.channel.send('There is no such item.\nTry this commands: ```{}roulette shop item\n{}roulette shop **mega_item\n{}roulette shop *buff_item```'.format(config.prefix, config.prefix, config.prefix))
 
 
 

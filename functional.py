@@ -27,7 +27,7 @@ def roll(user_mult=None, event=None):
 
     # 19 elements total
     items =     [0,     5,      10,     25,     50,     100,    'roll_buff', 200,    'item', 500,    'megacoins', 'ban_1', 1000, 'ban_5', 2000, 'double_balance', 'ban_60', 'trophy', 'half_balance']
-    weights =   [1.65,  1.6,    1.5,    1.3,    0.65,    0.5,    0.6,        0.35,    0.15,  0.25,    0.1,         0.08,   0.08,  0.04,   0.04,  0.02,             0.007,    0.01,     0.007]
+    weights =   [1.65,  1.6,    1.5,    1.3,    0.65,    0.4,    0.6,        0.35,    0.15,  0.25,    0.1,         0.08,   0.1,   0.04,   0.04,  0.02,             0.007,    0.01,     0.007]
     megaroll_items = (100, 200, 500, 1000, 'item', 'trophy')
     neg_items = [0, 5, 10, 'ban_1', 'ban_5', 'ban_60', 'half_balance']
 
