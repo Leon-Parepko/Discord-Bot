@@ -15,8 +15,9 @@ import functional
 config_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
 win_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
 loose_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\loose_words.txt"
-roulette_db_name = 'database.db'
+roulette_db_name = 'roulette.db'
 anecdote_db_name = 'anecdote.db'
+
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
 
@@ -269,7 +270,7 @@ try:
 
     @bot.event
     async def on_ready():
-        logging.info("Logged on as {0}".format(bot.user))
+        logging.info("Logged on as {}".format(bot.user))
 
 
 
@@ -343,7 +344,6 @@ try:
     @has_permissions(administrator=True)
     async def ban(ctx, user: discord.Member, ban_time, reason, *bot_use):
         if (superuser_check(ctx) and not ctx.message.author.bot) or bot_use[0] == True:
-                print(bot)
             # if not(int(ctx.message.author.id) == int(user.id)):
                 if not user.guild_permissions.administrator:
                     member = ctx.message.author
@@ -354,7 +354,8 @@ try:
                         await user.remove_roles(discord.utils.get(member.guild.roles, name=str(role)))
                     await user.add_roles(ban_role)
                     await ctx.message.channel.send("**{}** has been banned on {} min.\nReason: **{}**".format(str(user), ban_time, str(reason)))
-                    logging.info(" BAN   -   User: {},  Roles: {},  Time: {} (min),  Reason: {},  By: {}".format(user, str(user_roles), ban_time, reason, ctx.message.author))
+                    print(" BAN   -   User: {},  Roles: {},  Time: {} (min),  Reason: {},  By: {}".format(str(user), str(user_roles), str(ban_time), str(reason), str(ctx.message.author)))
+                    logging.info(" BAN   -   User: {},  Roles: {},  Time: {} (min),  Reason: {},  By: {}".format(str(user), str(user_roles), str(ban_time), str(reason), str(ctx.message.author)))
 
                     await asyncio.sleep(int(ban_time) * 60)
 
@@ -403,7 +404,10 @@ try:
         except IndexError:
             await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
 
-
+# ----- TEST -----
+    @bot.command()
+    async def ban_timer(ctx):
+        pass
 
 #++++++++++++++++++++FUN_COMMANDS++++++++++++++++++++++
     @bot.command()
@@ -515,7 +519,7 @@ try:
 
                             elif roll_result == "half_balance":
                                 add_sub_user_coins(ctx, -(int(user_coins) // 2))
-                                await ctx.message.channel.send("{}\nYour balance reduced in twice, now it is: {} © !".format(Phrases.loose(), int(user_coins) * 2))
+                                await ctx.message.channel.send("{}\nYour balance reduced in twice, now it is: {} © !".format(Phrases.loose(), int(user_coins) // 2))
 
 
                             elif roll_result == "megacoins":
@@ -693,6 +697,9 @@ try:
 
                                         if "*buff_" in str(item[0]):
                                             db_set("UPDATE roulette SET roll_buff = '{}' WHERE user_id = {}".format(item[0].split("*buff_")[0], int(ctx.message.author.id)))
+                                            await ctx.message.channel.send('You have successfully bought {}! (buffs are NOT STACKED)\nIt will be automatically used in your next roll.')
+                                            flag = False
+                                            break
 
                                         else:
                                             user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
@@ -721,8 +728,6 @@ try:
                                 await ctx.message.channel.send('There is no such item.\nTry this commands: ```{}roulette shop item\n{}roulette shop **mega_item\n{}roulette shop *buff_item```'.format(config.prefix, config.prefix, config.prefix))
 
 
-
-
                         except IndexError:
                             out_shop_item_arr = []
                             out_shop_megaitem_arr = []
@@ -739,6 +744,32 @@ try:
                             out_shop_megaitem_str = ''.join(out_shop_megaitem_arr).replace('_', ' ')
                             await ctx.message.channel.send('```\n ---------=======####$$$$$ SHOP $$$$$####=======--------- \n\n ITEMS:\n{}\n\n MEGA_ITEMS:\n{}\n\n ROLL BUFFS:\n{}```'.format(out_shop_item_str, out_shop_megaitem_str, out_shop_buff_str))
 
+                    else:
+                        await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
+
+#        -------------- TEST ------------------
+                elif operation[0] == "level":
+                    if check_valid_user_roulette(ctx):
+                        try:
+                            if operation[1] == "up":
+                                user_data = db_get("SELECT coins, megacoins, roll_counter, level FROM roulette WHERE user_id = {}".format(ctx.message.author.id))[0]
+                                print(user_data)
+                                user_level = int(user_data[3])
+                                if user_level != 100:
+                                    user_coins = int(user_data[0])
+                                    user_megacoins = int(user_data[1])
+                                    user_roll_counter = int(user_data[2])
+                                    if user_roll_counter >= user_level ** 3 and user_coins >= round((user_level * 4) ** 2.7) and user_megacoins >= user_level ** 2:
+                                        db_set("UPDATE roulette SET level = '{}' WHERE user_id = {}".format(user_level + 1, int(ctx.message.author.id)))
+                                        add_sub_user_coins(ctx, -round((user_level * 4) ** 2.7))
+                                        add_sub_user_megacoins(ctx, -user_level ** 2)
+                                        await ctx.message.channel.send('**CONGRATULATIONS!**\nYou have successfully upgraded your level to {}.'.format(user_level + 1))
+                                    else:
+                                        await ctx.message.channel.send('Some requirements are not satisfied!\nFor next level you need:```\n1) {} rolls\n2) {} ©\n3) {} ▽```'.format(user_level ** 3, round((user_level * 4) ** 2.7), user_level ** 2))
+                                else:
+                                    await ctx.message.channel.send('**SERIOUSLY?**\n I thought it was impossible to reach this level.')
+                        except IndexError:
+                                await ctx.message.channel.send('```\n -------=====####:::: LEVEL_SYSTEM ::::####=====------- \n\nThe higher level you have, the better items you could buy.\nTo increase level you need to satisfy some requirements:\n\n Totall Rolls:  your_level ^ 3\n Coins:  (your_level * 4) ** 2.7\n Megacoins:  your_level ** 2\n\n\nRank       Rank       Rank       Rank       Rank       Rank       Rank\n  1          2          3          4          5          6          7\n  |          |          |          |          |          |          |\n  *----------*----------*----------*----------*----------*----------#\n  1          5          10         20         40         60         80```')
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
@@ -790,7 +821,27 @@ try:
             for text in anecdote_text:
                 await ctx.message.channel.send("**ВНИМАНИЕ АНЕКДОТ:** {}".format(str(text[0])))
 
+# ----- TEST -----
+    @bot.command()
+    async def music(ctx, *operation):
+        try:
+            if operation[0] == "play":
+                pass
 
+            elif operation[0] == "stop":
+                pass
+
+            elif operation[0] == "queue":
+                pass
+
+            elif operation[0] == "skip":
+                pass
+
+            else:
+                pass
+
+        except IndexError:
+            pass
 
 #++++++++++++++++++++SCHEDULE_COMMANDS++++++++++++++++++++++
     @tasks.loop(hours=24)
