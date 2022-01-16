@@ -156,9 +156,43 @@ def check_valid_user_roulette(ctx):
     return False
 
 
+def check_item_sets(ctx, item_arr):
+
+    user_trophies = db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+
+    new_trophy = ""
+
+    if ("neko_girlfriend" and "neko_sister" and "neko_wife" in item_arr) and ("neko_paradise" not in user_trophies):
+        add_user_trophy(ctx, "neko_paradise")
+        new_trophy = "neko_paradise"
+
+    elif ("admins_keyboard" and "admins_mouse" and "admins_computer" and "admins_coffee" in item_arr) and ("binary_tambourine" not in user_trophies):
+        add_user_trophy(ctx, "binary_tambourine")
+        new_trophy = "binary_tambourine"
+
+    elif ("♂three_hundred_bucks♂" and "♂sticky_finger♂" and "♂deep_dark_fantasy♂" and "**mega_♂CUM♂" in item_arr) and ("♂fucking_slave♂" not in user_trophies):
+        add_user_trophy(ctx, "♂fucking_slave♂")
+        new_trophy = "♂fucking_slave♂"
+
+
+    if new_trophy != "":
+        return new_trophy
+    else:
+        return None
+
+
 def add_user_item(ctx, item):
     user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
     db_set("UPDATE roulette SET items = '{}' WHERE user_id = {}".format(str(user_items).__add__(" " + str(item)),int(ctx.message.author.id)))
+
+    user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0].split(" ")
+
+    result = check_item_sets(ctx, user_items)
+
+    if result is not None:
+        return result
+    else:
+        return None
 
 
 def add_user_trophy(ctx, trophy):
@@ -480,9 +514,10 @@ try:
                                         roll_items_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(item[0])))[0][0]) ** -1.7)
 
                                     rand_item = functional.roll_items(roll_items_reduce, roll_items_reduce_weights)[0]
-                                    add_user_item(ctx, rand_item)
+                                    have_item_set = add_user_item(ctx, rand_item)
                                     await ctx.message.channel.send("{}\nYou have won new item: {} !".format(Phrases.win(), str(rand_item).upper()))
-
+                                    if have_item_set is not None:
+                                        await ctx.message.channel.send("Also you have completed new item set, and got **{}** trophy!".format(have_item_set))
 
                             elif roll_result == "trophy":
                                 user_trophies = str(db_get("SELECT trophies FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]).split(" ")
@@ -705,15 +740,22 @@ try:
                                             user_items = db_get("SELECT items FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
                                             if str(item[0]) not in str(user_items):
                                                 if "**mega_" in str(item[0]):
-                                                    add_user_item(ctx, item[0])
+                                                    have_item_set = add_user_item(ctx, item[0])
                                                     add_sub_user_megacoins(ctx, -int(item[1]))
                                                     user_megacoins = int(db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
                                                     await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ▽'.format(str(item[0]).upper(), int(user_megacoins)))
 
+                                                    if have_item_set is not None:
+                                                        await ctx.message.channel.send("Also you have completed new item set, and got **{}** trophy!".format(have_item_set))
+
                                                 else:
-                                                    add_user_item(ctx, item[0])
+                                                    have_item_set = add_user_item(ctx, item[0])
                                                     add_sub_user_coins(ctx, -int(item[1]))
                                                     await ctx.message.channel.send('You have successfully bought {}!\nNow you have {} ©'.format(str(item[0]).upper(), int(user_coins) - int(item[1])))
+
+                                                    if have_item_set is not None:
+                                                        await ctx.message.channel.send("Also you have completed new item set, and got **{}** trophy!".format(have_item_set))
+
                                                 flag = False
                                                 break
                                             else:
@@ -747,7 +789,7 @@ try:
                     else:
                         await ctx.message.channel.send('You are not registered yet! Please register with:```{}roulette start```'.format(config.prefix))
 
-#        -------------- TEST ------------------
+
                 elif operation[0] == "level":
                     if check_valid_user_roulette(ctx):
                         try:
