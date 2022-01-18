@@ -3,10 +3,12 @@ from discord.ext import commands
 from discord.ext import tasks
 import discord
 import asyncio
+import requests
 import random
 import sys
 import logging
 import sqlite3
+import youtube_dl
 import functional
 
 
@@ -17,6 +19,26 @@ win_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
 loose_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\loose_words.txt"
 roulette_db_name = 'roulette.db'
 anecdote_db_name = 'anecdote.db'
+
+ytdl_options = {
+    'format': "bestaudio",
+    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+    'restrictfilenames': True,
+    'noplaylist': True,
+    'nocheckcertificate': True,
+    'ignoreerrors': False,
+    'logtostderr': False,
+    'quiet': True,
+    'no_warnings': True,
+    'default_search': 'auto',
+    'source_address': '0.0.0.0' # bind to ipv4 since ipv6 addresses cause issues sometimes
+}
+ffmpeg_options = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn'
+}
+global queue
+queue = []
 
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
 logging.basicConfig(filename='logging.log', level=logging.INFO, filemode='w', format='%(levelname)s   -   %(asctime)s   -   %(message)s')
@@ -63,9 +85,6 @@ class Item:
 
         text = text.replace("\\n", "\n")
         return text
-
-
-
 
 
 #--------------------------SUBSIDIARY_FUNCTIONS----------------------------------
@@ -262,6 +281,16 @@ def get_item(name=None, id=None):
         return None
 
 
+def check_valid_url(url):
+    if str(url).startswith("https://www.youtube.com/watch?v="):
+        request = requests.get(str(url))
+        if "Video unavailable" in request.text:
+            return False
+        else:
+            return True
+    else:
+        return False
+
 
 class phrases:
     def win(self):
@@ -295,6 +324,9 @@ try:
     intents = discord.Intents.default()
     intents.members = True
     bot = commands.Bot(command_prefix=config.prefix, intents=intents)
+
+#Youtube_dl initialization
+    ytdl = youtube_dl.YoutubeDL(ytdl_options)
 
 
 #Phrases initialization
@@ -453,7 +485,7 @@ try:
 
             try:
                 if operation[0] == "help":
-                    await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n\n\n________-----======= THIS IS A ROULETTE GAME! =======-----________\n\n\nYou could use this commands to play:\n{}roulette start - \n{}roulette top - \n{}roulette roll - \n{}roulette megaroll - \n{}roulette shop - \n{}roulette profile - \n{}roulette trophies - \n{}roulette items - ```'.format(config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix, config.prefix))
+                    await ctx.message.channel.send('```  ______   ______   __  __   __       ______  ______  ______  ______    \n /\  == \ /\  __ \ /\ \/\ \ /\ \     /\  ___\/\__  _\/\__  _\/\  ___\   \n \ \  __< \ \ \/\  \ \ \_\  \ \ \____\ \  __ \/_/\ \/\/_/\ \/\ \  __\   \n  \ \_\ \_ \ \_____ \ \_____ \ \_____ \ \_____\ \ \_\   \ \_\ \ \_____\ \n   \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/  \/_/    \/_/  \/_____/ \n\n\n________-----======= THIS IS A ROULETTE GAME! =======-----________\n\n\nYou could use this commands to play:\n{0}roulette start - \n{0}roulette top - \n{0}roulette roll - \n{0}roulette megaroll - \n{0}roulette shop - \n{0}roulette profile - \n{0}roulette trophies - \n{0}roulette items - ```'.format(config.prefix))
 
 
                 elif operation[0] == "start":
@@ -867,23 +899,109 @@ try:
     @bot.command()
     async def music(ctx, *operation):
         try:
-            if operation[0] == "play":
-                pass
+            global queue
 
-            elif operation[0] == "stop":
-                pass
+            if operation[0] == "play" or "pause" or "skip" or "quit" or "resume":
+
+                if ctx.author.voice is not None:
+                    channel = ctx.author.voice.channel
+
+                    if operation[0] == "play":
+                        if check_valid_url(operation[1]):
+                            queue.append(operation[1])
+
+                            if ctx.guild.voice_client not in bot.voice_clients:
+                                await channel.connect()
+
+                            server = ctx.message.guild
+                            voice_channel = server.voice_client
+
+                            while queue:
+                                try:
+                                    while voice_channel.is_playing() or voice_channel.is_paused():
+                                        await asyncio.sleep(2)
+                                        pass
+
+                                except AttributeError:
+                                    pass
+
+                                try:
+                                    with youtube_dl.YoutubeDL(ytdl_options) as ydl:
+                                        info = ydl.extract_info(queue[0], download=False)
+                                        url2 = info['formats'][0]['url']
+                                        source = await discord.FFmpegOpusAudio.from_probe(url2, **ffmpeg_options)
+                                        voice_channel.play(source)
+
+
+                                    queue.pop(0)
+
+                                    await ctx.send('**Now playing:** {}'.format(info['title']))
+
+                                except:
+                                    break
+
+
+
+
+                        else:
+                            await ctx.message.channel.send("The link is invalid or this youtube video is unavailable!")
+
+                    elif operation[0] == "pause":
+                        server = ctx.message.guild
+                        voice_channel = server.voice_client
+                        voice_channel.pause()
+                        await ctx.message.channel.send("Paused")
+
+                    elif operation[0] == "resume":
+                        server = ctx.message.guild
+                        voice_channel = server.voice_client
+                        voice_channel.resume()
+                        await ctx.message.channel.send("Resumed")
+
+                    elif operation[0] == "skip":
+                        try:
+                            server = ctx.message.guild
+                            voice_channel = server.voice_client
+                            voice_channel.stop()
+                            await ctx.message.channel.send("Skipped")
+
+                        except:
+                            pass
+
+                    elif operation[0] == "quit":
+                        queue.clear()
+                        await ctx.message.guild.voice_client.disconnect()
+                else:
+                    await ctx.message.channel.send("You are not in voice channel to use this command!")
 
             elif operation[0] == "queue":
-                pass
+                queue_text = "------------**SONG QUEUE**------------\n"
+                counter = 1
 
-            elif operation[0] == "skip":
-                pass
 
-            else:
-                pass
+                if len(queue) <= 7:
+                    for url in queue:
+                        with youtube_dl.YoutubeDL(ytdl_options) as ydl:
+                            info = ydl.extract_info(url, download=False)
+                            queue_text += "{}) **{}**\n".format(counter, info['title'])
+
+                            counter += 1
+
+                else:
+                    for url in queue[:6]:
+                        with youtube_dl.YoutubeDL(ytdl_options) as ydl:
+                            info = ydl.extract_info(url, download=False)
+                            queue_text += "{}) **{}**\n".format(counter, info['title'])
+
+                            counter += 1
+                    queue_text += "{} more song in the list...".format(len(queue) - 7)
+
+                await ctx.message.channel.send(queue_text)
+
 
         except IndexError:
-            pass
+            await ctx.message.channel.send("```Music Commands\n {0}play \n {0}stop \n {0}queue \n {0}skip```".format(config.prefix))
+
 
 #++++++++++++++++++++SCHEDULE_COMMANDS++++++++++++++++++++++
     @tasks.loop(hours=24)
