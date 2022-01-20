@@ -155,9 +155,13 @@ def valid_user_check(user_id, ctx):
         return False
 
 
-def valid_channel_check(channel_name, ctx):
-    if str(channel_name) in map(str, ctx.guild.channels) and str(channel_name) not in config.available_channels:
-        return True
+def valid_channel_check(channel_id, ctx):
+    if str(channel_id).isdigit():
+        guild_channels = list(map(lambda x: x.id, ctx.guild.channels))
+        if int(channel_id) in guild_channels and str(channel_id) not in config.available_channels:
+            return True
+        else:
+            return False
     else:
         return False
 
@@ -285,7 +289,7 @@ def get_item(name=None, id=None):
 
 
 def check_valid_url(url):
-    if str(url).startswith("https://www.youtube.com/watch?v="):
+    if str(url).startswith("https://www.youtube.com/watch?v=") or str(url).startswith("https://youtu.be/"):
         request = requests.get(str(url))
         if "Video unavailable" in request.text:
             return False
@@ -389,21 +393,21 @@ try:
     async def available_channels_config(ctx, operation, arg):
         if superuser_check(ctx) and not ctx.message.author.bot:
             if operation != "add" and operation != "set":
-                await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
+                await ctx.message.channel.send("This operation is invalid! Please, try one of this - set, add \nExample:```" + config.prefix + "available_channels_config set CHANNEL_ID```")
 
             elif valid_channel_check(arg, ctx) == True:
                 if operation == "add":
                     change_file_var(2, open(config_file_path, "r").readlines()[2].split("\n")[0] + " " + arg + "\n")
                     reconfig(parse_file(config_file_path))
-                    await ctx.message.channel.send("New channel has been added successfully.")
+                    await ctx.message.channel.send("New channel: {} has been added successfully.".format(bot.get_channel(int(arg)).name))
 
                 elif operation == "set":
                     change_file_var(2, "CHANNELS = " + arg + "\n")
                     reconfig(parse_file(config_file_path))
-                    await ctx.message.channel.send("New channel has been set successfully.")
+                    await ctx.message.channel.send("New channel: {} has been set successfully.".format(bot.get_channel(int(arg)).name))
 
             else:
-                await ctx.message.channel.send("This channel is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "available_channels_config set CHANNEL_NAME```")
+                await ctx.message.channel.send("This channel is invalid or already in the list! Please, try other one\nExample:```" + config.prefix + "available_channels_config set CHANNEL_ID```")
         else:
             await ctx.message.channel.send("You dont have permissions to use this commands!")
 
@@ -412,7 +416,7 @@ try:
     @bot.command(pass_context=True)
     @has_permissions(administrator=True)
     async def ban(ctx, user: discord.Member, ban_time, reason, *bot_use):
-        if str(ctx.message.channel) in config.available_channels:
+        if str(ctx.message.channel.id) in config.available_channels:
             if (superuser_check(ctx) and not ctx.message.author.bot) or bot_use[0] == True:
                 # if not(int(ctx.message.author.id) == int(user.id)):
                     if not user.guild_permissions.administrator:
@@ -445,7 +449,7 @@ try:
 #++++++++++++++++++++INFO_COMMANDS++++++++++++++++++++++
     @bot.command()
     async def show(ctx, *operation):
-        if str(ctx.message.channel) in config.available_channels:
+        if str(ctx.message.channel.id) in config.available_channels:
             try:
                 if operation[0] == "version":
                     await ctx.message.channel.send("```Version = " + config.version + "```")
@@ -454,21 +458,28 @@ try:
                     await ctx.message.channel.send("```Prefix = " + config.prefix + "```")
 
                 elif operation[0] == "available_channels":
-                    await ctx.message.channel.send("```Available Channels = " + str(config.available_channels) + "```")
+                    channels = list(map(lambda x: bot.get_channel(int(x)).name, config.available_channels))
+                    await ctx.message.channel.send("```Available Channels = " + str(channels) + "```")
 
                 elif operation[0] == "super_users":
-                    await ctx.message.channel.send("```Super Users = " + str(config.super_users) + "```")
+                    users = list(map(lambda x: bot.get_user(int(x)).name, config.super_users))
+                    await ctx.message.channel.send("```Super Users = " + str(users) + "```")
 
                 elif operation[0] == "token":
                     await ctx.message.channel.send("Are you serious?")
 
             except IndexError:
-                await ctx.message.channel.send("```Version = {}\nPrefix = {}\nAvailable Channels = {}\nSuper Users = {}```".format(config.version, config.prefix, config.available_channels, config.super_users))
+
+                users = list(map(lambda x: bot.get_user(int(x)).name, config.super_users))
+                channels = list(map(lambda x: bot.get_channel(int(x)).name, config.available_channels))
+
+
+                await ctx.message.channel.send("```Version = {}\nPrefix = {}\nAvailable Channels = {}\nSuper Users = {}```".format(config.version, config.prefix, channels, users))
 
 
     @bot.command()
     async def bot_status(ctx, *operation):
-        if str(ctx.message.channel) in config.available_channels:
+        if str(ctx.message.channel.id) in config.available_channels:
             try:
                 if operation[0] == "ping":
                     await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
@@ -484,7 +495,7 @@ try:
 #++++++++++++++++++++FUN_COMMANDS++++++++++++++++++++++
     @bot.command()
     async def roulette(ctx, *operation):
-        if str(ctx.message.channel) in config.available_channels:
+        if str(ctx.message.channel.id) in config.available_channels:
             if ctx.message.author.bot:
                 await ctx.message.channel.send('Hay! It is illegal to use bots! :(')
             else:
@@ -521,7 +532,6 @@ try:
 
                                 add_sub_user_coins(ctx, -roll_price)
                                 db_set("UPDATE roulette SET roll_buff = NULL WHERE user_id = {}".format(int(ctx.message.author.id)))
-                                print(roll_result, user_roll_buff)
 
                                 if type(roll_result) == int:
                                     add_sub_user_coins(ctx, roll_result)
@@ -619,7 +629,6 @@ try:
                                 db_set("UPDATE roulette SET megacoins = {} WHERE user_id = {}".format(int(user_megacoins - 1), int(ctx.message.author.id)))
                                 megaroll_result = functional.roll(event="megaroll")
 
-                                print(megaroll_result)
 
                                 if type(megaroll_result) == int:
                                     add_sub_user_coins(ctx, megaroll_result)
@@ -833,7 +842,6 @@ try:
                             try:
                                 if operation[1] == "up":
                                     user_data = db_get("SELECT coins, megacoins, roll_counter, level FROM roulette WHERE user_id = {}".format(ctx.message.author.id))[0]
-                                    print(user_data)
                                     user_level = int(user_data[3])
                                     if user_level != 100:
                                         user_coins = int(user_data[0])
@@ -890,7 +898,7 @@ try:
 
     @bot.command()
     async def anecdote(ctx):
-        if str(ctx.message.channel) in config.available_channels:
+        if str(ctx.message.channel.id) in config.available_channels:
             with sqlite3.connect(anecdote_db_name) as anec_db:
                 cursor = anec_db.cursor()
                 cursor.execute("""SELECT * FROM anecdote_table""")
@@ -905,7 +913,7 @@ try:
 # ----- TEST -----
     @bot.command()
     async def music(ctx, *operation):
-        if str(ctx.message.channel) in config.available_channels:
+        if str(ctx.message.channel.id) in config.available_channels:
             try:
                 global queue
 
@@ -983,12 +991,6 @@ try:
                             else:
                                 await ctx.message.channel.send("The link is invalid or this youtube video is unavailable!")
 
-                        # elif operation[0] == "status":
-                        #     server = ctx.message.guild
-                        #     voice_channel = server.voice_client
-                        #     print(voice_channel.is_playing())
-                        #     print(voice_channel.is_paused())
-
                         elif operation[0] == "pause":
                             server = ctx.message.guild
                             voice_channel = server.voice_client
@@ -999,14 +1001,14 @@ try:
                             server = ctx.message.guild
                             voice_channel = server.voice_client
                             voice_channel.resume()
-                            await ctx.message.channel.send("Resumed")
+                            await ctx.message.channel.send("Resumed.")
 
                         elif operation[0] == "skip":
                             try:
                                 server = ctx.message.guild
                                 voice_channel = server.voice_client
                                 voice_channel.stop()
-                                await ctx.message.channel.send("Skipped")
+                                await ctx.message.channel.send("Skipped.")
 
                             except:
                                 pass
@@ -1014,6 +1016,7 @@ try:
                         elif operation[0] == "quit":
                             queue.clear()
                             await ctx.message.guild.voice_client.disconnect()
+                            await ctx.message.channel.send("The bot has been disconnected.")
 
                     else:
                         await ctx.message.channel.send("You are not in voice channel to use this command!")
@@ -1031,14 +1034,11 @@ try:
 
 # Auto Disconnect
     @tasks.loop(seconds=10)
-    async def every_minute():
+    async def every_10sec():
 
         index_counter = 0
 
         for guild in bot.guilds:
-
-            print(guild, voice_activity_counter)
-
             try:
                 voice_channel = guild.voice_client
                 if not voice_channel.is_playing() and not voice_channel.is_paused():
@@ -1065,7 +1065,7 @@ try:
 
             index_counter += 1
 
-    every_minute.start()
+    every_10sec.start()
     daily.start()
     bot.run(config.token)
 
