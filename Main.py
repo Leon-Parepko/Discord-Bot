@@ -39,8 +39,10 @@ ffmpeg_options = {
 }
 global voice_activity_counter
 global queue
+global music_loop
 voice_activity_counter = [0]
 queue = []
+music_loop = False
 Auto_Disconnect_Timeout = 5     # minutes
 
 prefixes_available = "!@#$%^&*+_-~`=:;?/.<>,|"
@@ -916,6 +918,7 @@ try:
         if str(ctx.message.channel.id) in config.available_channels:
             try:
                 global queue
+                global music_loop
 
                 if operation[0] == "queue":
                     queue_text = "------------**SONG QUEUE**------------\n"
@@ -945,7 +948,7 @@ try:
                     await ctx.message.channel.send(queue_text)
 
 
-                elif operation[0] == "play" or "pause" or "skip" or "quit" or "resume":
+                elif operation[0] == "play" or "pause" or "skip" or "quit" or "resume" or "loop":
 
                     if ctx.author.voice is not None:
                         channel = ctx.author.voice.channel
@@ -977,8 +980,8 @@ try:
                                             source = await discord.FFmpegOpusAudio.from_probe(url2, **ffmpeg_options)
                                             voice_channel.play(source)
 
-
-                                        queue.pop(0)
+                                        if music_loop == False:
+                                            queue.pop(0)
 
                                         await ctx.send('**Now playing:** {}'.format(info['title']))
 
@@ -996,6 +999,13 @@ try:
                             voice_channel = server.voice_client
                             voice_channel.pause()
                             await ctx.message.channel.send("Paused")
+
+                        elif operation[0] == "loop":
+                            music_loop = not music_loop
+                            if music_loop == True:
+                                await ctx.message.channel.send("Loop mode is on.")
+                            else:
+                                await ctx.message.channel.send("Loop mode is off.")
 
                         elif operation[0] == "resume":
                             server = ctx.message.guild
