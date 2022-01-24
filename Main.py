@@ -9,14 +9,14 @@ import sys
 import logging
 import sqlite3
 import youtube_dl
-import functional
+import roulette_func
 
 
 
 #--------------------------VARIABLES & CLASSES INIT----------------------------------
-config_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\config.txt"
-win_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\win_words.txt"
-loose_words_file_path = "C:\\Users\\Leon\\Desktop\\Discord-Bot\\loose_words.txt"
+config_file_path = "config.txt"
+win_words_file_path = "win_words.txt"
+loose_words_file_path = "loose_words.txt"
 roulette_db_name = 'roulette.db'
 anecdote_db_name = 'anecdote.db'
 
@@ -38,9 +38,11 @@ ffmpeg_options = {
     'options': '-vn'
 }
 global voice_activity_counter
+global connected_servers
 global queue
 global music_loop
 voice_activity_counter = [0]
+connected_servers = [0]
 queue = []
 music_loop = False
 Auto_Disconnect_Timeout = 5     # minutes
@@ -486,8 +488,14 @@ try:
                 if operation[0] == "ping":
                     await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
 
+                elif operation[0] == "music_loop":
+                    await ctx.message.channel.send("```Music_Loop - {}.```".format(str(music_loop)))
+
+                elif operation[0] == "active_vc":
+                    pass
+
             except IndexError:
-                await ctx.message.channel.send("```Ping - {} ms.```".format(str(round(bot.latency * 1000))) )
+                await ctx.message.channel.send("```Ping - {} ms.\nMusic_Loop - {}.```".format(str(round(bot.latency * 1000)), str(music_loop)))
 
 # ----- TEST -----
     @bot.command()
@@ -530,7 +538,7 @@ try:
                                 user_roll_buff = db_get("SELECT roll_buff FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0]
                                 user_roll_mult = count_user_mult(ctx)
 
-                                roll_result = functional.roll(user_mult=user_roll_mult, event=str(user_roll_buff))
+                                roll_result = roulette_func.roll(user_mult=user_roll_mult, event=str(user_roll_buff))
 
                                 add_sub_user_coins(ctx, -roll_price)
                                 db_set("UPDATE roulette SET roll_buff = NULL WHERE user_id = {}".format(int(ctx.message.author.id)))
@@ -563,7 +571,7 @@ try:
                                         for item in roll_items_reduce:
                                             roll_items_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(item[0])))[0][0]) ** -1.7)
 
-                                        rand_item = functional.roll_items(roll_items_reduce, roll_items_reduce_weights)[0]
+                                        rand_item = roulette_func.roll_items(roll_items_reduce, roll_items_reduce_weights)[0]
                                         have_item_set = add_user_item(ctx, rand_item)
                                         await ctx.message.channel.send("{}\nYou have won new item: {} !".format(Phrases.win(), str(rand_item).upper()))
                                         if have_item_set is not None:
@@ -586,13 +594,13 @@ try:
                                         for trophy in roll_trophies_reduce:
                                             roll_trophies_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(trophy[0])))[0][0]) ** -1.7)
 
-                                        rand_trophy = functional.roll_items(roll_trophies, roll_trophies_reduce_weights)[0]
+                                        rand_trophy = roulette_func.roll_items(roll_trophies, roll_trophies_reduce_weights)[0]
                                         add_user_trophy(ctx, rand_trophy)
                                         await ctx.message.channel.send("{}\nYou have won new trophy: {} !".format(Phrases.win(), str(rand_trophy).upper()))
 
 
                                 elif roll_result == "roll_buff":
-                                    buff = functional.roll_buff()
+                                    buff = roulette_func.roll_buff()
                                     db_set("UPDATE roulette SET roll_buff = '{}' WHERE user_id = {}".format(str(buff), int(ctx.message.author.id)))
                                     await ctx.message.channel.send("{}\nYou have won roll buff: {}.\nIt will be automatically used in your next roll.".format(Phrases.win(), buff))
 
@@ -629,7 +637,7 @@ try:
                             user_megacoins = int(db_get("SELECT megacoins FROM roulette WHERE user_id = {}".format(int(ctx.message.author.id)))[0][0])
                             if user_megacoins >= 1:
                                 db_set("UPDATE roulette SET megacoins = {} WHERE user_id = {}".format(int(user_megacoins - 1), int(ctx.message.author.id)))
-                                megaroll_result = functional.roll(event="megaroll")
+                                megaroll_result = roulette_func.roll(event="megaroll")
 
 
                                 if type(megaroll_result) == int:
@@ -661,7 +669,7 @@ try:
                                         for item in roll_items_reduce:
                                             roll_items_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(item)))[0][0]) ** -1.7)
 
-                                        rand_item = functional.roll_items(roll_items_reduce, roll_items_reduce_weights)
+                                        rand_item = roulette_func.roll_items(roll_items_reduce, roll_items_reduce_weights)
                                         await ctx.message.channel.send("{}\nYou have won new item: {} !".format(Phrases.win(), str(rand_item).upper()))
 
 
@@ -690,7 +698,7 @@ try:
                                         for trophy in roll_trophies_reduce:
                                             roll_trophies_reduce_weights.append(int(db_get("SELECT rank FROM roulette_all_items WHERE name = '{}'".format(str(trophy)))[0][0]) ** -1.7)
 
-                                        rand_trophy = functional.roll_items(roll_trophies_reduce, roll_trophies_reduce_weights)
+                                        rand_trophy = roulette_func.roll_items(roll_trophies_reduce, roll_trophies_reduce_weights)
                                         add_user_trophy(ctx, rand_trophy)
                                         await ctx.message.channel.send("{}\nYou have won new trophy: {} !".format(Phrases.win(), str(rand_trophy).upper()))
 
@@ -912,7 +920,6 @@ try:
                 for text in anecdote_text:
                     await ctx.message.channel.send("**ВНИМАНИЕ АНЕКДОТ:** {}".format(str(text[0])))
 
-# ----- TEST -----
     @bot.command()
     async def music(ctx, *operation):
         if str(ctx.message.channel.id) in config.available_channels:
@@ -962,6 +969,8 @@ try:
 
                                 server = ctx.message.guild
                                 voice_channel = server.voice_client
+
+                                await ctx.send('Added to queue!')
 
                                 while queue:
                                     try:
@@ -1033,8 +1042,7 @@ try:
 
 
             except IndexError:
-                await ctx.message.channel.send("```Music Commands\n {0}play \n {0}stop \n {0}queue \n {0}skip```".format(config.prefix))
-
+                await ctx.message.channel.send("```Music Commands\n {0}music play YOUTUBE_REFERENCE\n {0}music pause\n {0}music resume\n {0}music skip\n {0}music loop\n {0}music queue\n {0}music quit```".format(config.prefix))
 
 
 #++++++++++++++++++++SCHEDULE_COMMANDS++++++++++++++++++++++
